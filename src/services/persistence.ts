@@ -49,8 +49,26 @@ function validPolygonGeometry(poly:readonly {x:number;y:number}[],shape:'square'
 }
 const GRADES=['twig','wood','stone','metal','armored','unknown'];
 const KINDS=['wall','doorway','window','wall-frame','half-wall','low-wall','unknown'];
-const TILE_KINDS=['foundation','floor','floor-frame','roof','unknown'];
+const INSERTS=['none','wood-door','sheet-metal-door','armored-door','garage-door','double-sheet-metal-door','double-armored-door'];
+const SIDES=['left','right','up','down','unknown'];
+const TILE_KINDS=['foundation','floor','floor-frame','roof','stairs-u','stairs-l','stairs-spiral','stairs-spiral-triangle','ramp','foundation-steps','unknown'];
 const OBS=['observed','inferred','hypothesized'];
+function isExtended(x:Record<string,unknown>,edge:boolean):boolean{
+  if(x.health!==undefined){
+    const h=x.health;
+    if(!isObj(h)||!(h.current===null||(isNumber(h.current)&&h.current>=0))||
+      !(h.max===null||(isNumber(h.max)&&h.max>=0))||
+      (h.current!==null&&h.max!==null&&Number(h.current)>Number(h.max)))return false;
+  }
+  if(x.softSide!==undefined&&!SIDES.includes(String(x.softSide)))return false;
+  if(edge){
+    if(x.insert!==undefined&&!INSERTS.includes(String(x.insert)))return false;
+  }else{
+    if(x.rotation!==undefined&&(!isNumber(x.rotation)||x.rotation<0||x.rotation>=360))return false;
+    if(x.elevation!==undefined&&(!isNumber(x.elevation)||x.elevation< -100||x.elevation>100||Math.abs(x.elevation*4-Math.round(x.elevation*4))>1e-6))return false;
+  }
+  return true;
+}
 function isStability(x:unknown):boolean{
   return isObj(x)&&(x.percent===null||(isNumber(x.percent)&&x.percent>=0&&x.percent<=100))&&
     ['player','screenshot','import','simulator','unknown'].includes(String(x.source)) &&
@@ -72,7 +90,7 @@ export function parseBlueprint(data:unknown):BlueprintDocument {
       !Array.isArray(t.polygon)||t.polygon.length!==(t.shape==='square'?4:3)||!t.polygon.every(isPoint)||
       !GRADES.includes(String(t.grade))||!TILE_KINDS.includes(String(t.kind))||
       !OBS.includes(String(t.observation))||!isStability(t.stability)||
-      !validPolygonGeometry(t.polygon,t.shape as 'square'|'triangle')){
+      !validPolygonGeometry(t.polygon,t.shape as 'square'|'triangle')||!isExtended(t,false)){
       throw new Error('Ungültiges oder doppeltes Bauteil im Blueprint.');
     }
     ids.add(t.id);
@@ -80,11 +98,29 @@ export function parseBlueprint(data:unknown):BlueprintDocument {
   for(const e of data.edges){
     if(!isObj(e)||typeof e.id!=='string'||!e.id||ids.has(e.id)||!isNumber(e.floor)||!Number.isInteger(e.floor)||
       !isPoint(e.a)||!isPoint(e.b)||!GRADES.includes(String(e.grade))||!KINDS.includes(String(e.kind))||
-      !OBS.includes(String(e.observation))||!isStability(e.stability)){
+      !OBS.includes(String(e.observation))||!isStability(e.stability)||!isExtended(e,true)){
       throw new Error('Ungültige Wand-/Türinformation im Blueprint.');
     }
     ids.add(e.id);
   }
+  if(data.states!==undefined){
+    if(!Array.isArray(data.states))throw new Error('Ungültige Bunker-Zustände.');
+    const used=new Set<string>();
+    for(const state of data.states){
+      if(!isObj(state)||typeof state.id!=='string'||!state.id||used.has(state.id)||
+         typeof state.label!=='string'||!['sealed','open','construction','other'].includes(String(state.purpose))||
+         !Array.isArray(state.tileIds)||!Array.isArray(state.edgeIds)||typeof state.notes!=='string'||
+         !state.tileIds.every((id:unknown)=>typeof id==='string'&&(data.tiles as Record<string,unknown>[]).some(t=>t.id===id))||
+         !state.edgeIds.every((id:unknown)=>typeof id==='string'&&(data.edges as Record<string,unknown>[]).some(e=>e.id===id)))
+        throw new Error('Ungültige Bauzustände oder nicht existente Elementverweise.');
+      used.add(state.id);
+    }
+  }
+  if(data.bunker!==undefined&&(!isObj(data.bunker)||
+    !['stability','roof','offset','other','unknown'].includes(String(data.bunker.mechanism))||
+    !(data.bunker.verifiedInGamePatch===null||typeof data.bunker.verifiedInGamePatch==='string')||
+    !(data.bunker.evidenceUrl===null||typeof data.bunker.evidenceUrl==='string')||
+    typeof data.bunker.note!=='string'))throw new Error('Ungültige Bunker-Metadaten.');
   // Preserve geometrical invariants on imports as well as on canvas placement.
   for(let i=0;i<data.tiles.length;i++)for(let j=i+1;j<data.tiles.length;j++){
     const a=data.tiles[i]!,b=data.tiles[j]!;

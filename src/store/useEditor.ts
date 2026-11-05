@@ -2,9 +2,9 @@ import { create } from 'zustand';
 import { produce } from 'immer';
 import type { BlueprintDocument } from '../core/blueprint.ts';
 import type { Point, TileShape } from '../core/geometry.ts';
-import { attachTo, exampleProject, newProject, placeRoot, removeEntity, updateSelected, upsertWall,
+import { attachTo, exampleProject, exampleBunkerProject, newProject, placeRoot, removeEntity, updateSelected, upsertWall,
   type EdgeTarget, type EditorTool, type SelectedEntity } from '../core/editor.ts';
-import type { MaterialGrade, EdgeKind } from '../core/blueprint.ts';
+import type { MaterialGrade, EdgeKind, SoftSide, BuildingKind, DoorInsert, HealthState } from '../core/blueprint.ts';
 
 const MAX_HISTORY=75;
 interface EditorStore {
@@ -22,15 +22,23 @@ interface EditorStore {
   rename:(name:string)=>void;
   startNew:()=>void;
   loadExample:()=>void;
+  loadBunkerExample:()=>void;
   hydrate:(doc:BlueprintDocument|null)=>void;
   setDocument:(doc:BlueprintDocument)=>void;
-  root:(shape:TileShape,at:Point)=>boolean;
-  attach:(sourceId:string,index:number,shape:TileShape)=>boolean;
+  root:(shape:TileShape,at:Point,elevation?:number)=>boolean;
+  attach:(sourceId:string,index:number,shape:TileShape,relativeHeight?:number)=>boolean;
   wall:(target:EdgeTarget,kind:EdgeKind)=>void;
   erase:()=>void;
   eraseTarget:(target:SelectedEntity)=>void;
   updateGrade:(grade:MaterialGrade)=>void;
   updateStability:(stability:number|null)=>void;
+  updateHealth:(health:HealthState)=>void;
+  updateSoftSide:(side:SoftSide)=>void;
+  updateTileKind:(kind:BuildingKind)=>void;
+  updateEdgeKind:(kind:EdgeKind)=>void;
+  updateInsert:(insert:DoorInsert)=>void;
+  updateRotation:(rotation:number)=>void;
+  updateElevation:(elevation:number)=>void;
   undo:()=>void;
   redo:()=>void;
 }
@@ -45,16 +53,17 @@ export const useEditor=create<EditorStore>((set,get)=>({
   setFloor:(floor)=>set({floor:Math.min(20,Math.max(0,floor)),selected:null}),
   select:(selected)=>set({selected,tool:'inspect'}),
   rename:(name)=>set(s=>commit(s,produce(s.doc,d=>{d.name=name;}))),
-  startNew:()=>set({doc:newProject(),past:[],future:[],selected:null,floor:0,modifiedAt:Date.now(),tool:'square'}),
+  startNew:()=>set({doc:newProject(),past:[],future:[],selected:null,floor:0,modifiedAt:Date.now(),tool:'inspect'}),
   loadExample:()=>set({doc:exampleProject(),past:[],future:[],selected:null,floor:0,modifiedAt:Date.now(),tool:'inspect'}),
+  loadBunkerExample:()=>set({doc:exampleBunkerProject(),past:[],future:[],selected:null,floor:0,modifiedAt:Date.now(),tool:'inspect'}),
   hydrate:(doc)=>set({doc:doc??newProject(),isLoading:false,past:[],future:[],modifiedAt:0}),
   setDocument:(doc)=>set({doc,past:[],future:[],selected:null,floor:0,modifiedAt:Date.now(),tool:'inspect'}),
-  root:(shape,at)=>{
-    const s=get(),next=placeRoot(s.doc,s.floor,shape,at,uid());
+  root:(shape,at,elevation)=>{
+    const s=get(),next=placeRoot(s.doc,s.floor,shape,at,uid(),elevation??s.floor);
     if(!next)return false;set(commit(s,next));return true;
   },
-  attach:(sourceId,index,shape)=>{
-    const s=get(),next=attachTo(s.doc,s.floor,sourceId,index,shape,uid());
+  attach:(sourceId,index,shape,relativeHeight=0)=>{
+    const s=get(),next=attachTo(s.doc,s.floor,sourceId,index,shape,uid(),relativeHeight);
     if(!next)return false;set(commit(s,next));return true;
   },
   wall:(target,kind)=>set(s=>commit(s,upsertWall(s.doc,target,kind,uid()))),
@@ -62,6 +71,13 @@ export const useEditor=create<EditorStore>((set,get)=>({
   eraseTarget:(target)=>set(s=>({...commit(s,removeEntity(s.doc,target)),selected:null})),
   updateGrade:(grade)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{grade}))),
   updateStability:(stability)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{stability}))),
+  updateHealth:(health)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{health}))),
+  updateSoftSide:(softSide)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{softSide}))),
+  updateTileKind:(tileKind)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{tileKind}))),
+  updateEdgeKind:(edgeKind)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{edgeKind}))),
+  updateInsert:(insert)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{insert}))),
+  updateRotation:(rotation)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{rotation}))),
+  updateElevation:(elevation)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{elevation}))),
   undo:()=>set(s=>{
     if(!s.past.length)return {};
     return {doc:s.past[s.past.length-1]!,past:s.past.slice(0,-1),future:[s.doc,...s.future],selected:null,modifiedAt:Date.now()};
