@@ -73,6 +73,7 @@ function EditorCanvas(){
   const [pointer,setPointer]=useState<Point|null>(null);
   const [menu,setMenu]=useState<ClickMenu|null>(null);
   const [rootHeight,setRootHeight]=useState(0);
+  const [contextNotice,setContextNotice]=useState<string|null>(null);
   const [showBelow,setShowBelow]=useState(true);
   const [showGrid,setShowGrid]=useState(true);
   useEffect(()=>{
@@ -217,7 +218,8 @@ function EditorCanvas(){
       <div className="rust-steps">{[-.5,0,.5,1].map(v=><button key={v} className={rootHeight===v?'chosen':''} onClick={()=>setRootHeight(v)}>{v>0?'+':''}{v}</button>)}</div>
       <p>Danach auf die freie Baufläche klicken.</p>
     </div>}
-    {menu&&<BlueprintMenu menu={menu} close={()=>setMenu(null)} notice={msg=>useEditor.getState().setDocument({...useEditor.getState().doc,notes:[...useEditor.getState().doc.notes,msg]})}/>}
+    {menu&&<BlueprintMenu menu={menu} close={()=>setMenu(null)} notice={setContextNotice}/>}
+    {contextNotice&&<div className="context-toast">{contextNotice}<button onClick={()=>setContextNotice(null)} aria-label="Meldung schließen">×</button></div>}
   </div>;
 }
 function App(){
