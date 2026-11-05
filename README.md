@@ -79,3 +79,7 @@ See [ROADMAP.md](ROADMAP.md) and [v0.5 release notes](docs/RELEASE-v0.5.md).
 ## v0.6.1
 
 2D-Bauplan wird am tatsächlichen Grundriss zentriert; 3D-Grundflächen und Wände sind X/Z-identisch und berücksichtigen die Höhen. Eigenständige rustindustrielle Gestaltung. Stabilitäts-/Raidberechnung noch nicht vollständig validiert.
+
+## Multi-floor building (v0.6.2)
+
+F1 starts one full wall-height above F0, including any local foundation offset. On F1+, choose **Untergeschoss als Decke übernehmen** to copy the previous floor footprint into true floor plates with correct elevations. Previously saved plans with F1 at 0 H show an explicit **ältere Etagenhöhen korrigieren** action; this action is undoable. See [release notes](docs/RELEASE-v0.6.2.md).

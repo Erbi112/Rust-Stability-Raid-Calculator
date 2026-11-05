@@ -17,6 +17,7 @@ import { exportProject, importProject, loadProject, saveProject } from '../servi
 import { CATALOG, CATALOG_GROUPS, getCatalogPiece, type CatalogPiece } from '../core/catalog.ts';
 import { StructureIcon } from './StructureIcon.tsx';
 import { ThreeBaseView } from './ThreeBaseView.tsx';
+import { misplacedUpperTiles, proposedElevation } from '../core/levels.ts';
 import { fitCameraToTiles } from '../core/viewport.ts';
 import { AnalysisPanel, type AnalysisTab } from './AnalysisPanel.tsx';
 
@@ -116,6 +117,7 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
  const [size,setSize]=useState({w:950,h:660}),[camera,setCamera]=useState({x:475,y:330,scale:1});
  const [pointer,setPointer]=useState<Point|null>(null),[menu,setMenu]=useState<ContextMenu|null>(null);
  const [grid,setGrid]=useState(true),[below,setBelow]=useState(true),[rootHeight,setRootHeight]=useState(0);
+ useEffect(()=>{setRootHeight(0);},[floor]);
  const lastSize=useRef({w:950,h:660}),measured=useRef(false);
  const tiles=useMemo(()=>tilesOnFloor(doc,floor),[doc,floor]);
  const fitView=useCallback((w=size.w,h=size.h)=>
@@ -212,8 +214,8 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
     <button onClick={()=>zoom(1.2)} title="Vergrößern"><ZoomIn size={16}/></button><button title="Gesamte Base einpassen" onClick={()=>fitView()}><RotateCcw size={15}/></button></div>
   {tiles.length===0&&tool==='inspect'&&<div className="canvas-empty"><Hammer size={30}/><h3>NEUE BASE KONSTRUIEREN</h3><p>Starte mit einem quadratischen oder dreieckigen Fundament. Alle weiteren Bauteile docken an vorhandene Kanten an.</p>
     <div className="empty-options"><button onClick={()=>onSelectPiece('foundation-square')}><Square size={21}/> Quadrat</button><button onClick={()=>onSelectPiece('foundation-triangle')}><Triangle size={22}/> Dreieck</button></div>
-    <label className="field-label">Start-Fundamenthöhe (H)</label><div className="offset-pills">{[-.5,0,.5,1].map(v=><button className={rootHeight===v?'picked':''} key={v} onClick={()=>setRootHeight(v)}>{v>0?'+':''}{v}</button>)}</div>
-    <p className="context-help">Dann auf die freie Fläche klicken.</p></div>}
+    <label className="field-label">Zusätzlicher Höhenversatz gegenüber dieser Etage (H)</label><div className="offset-pills">{[-.5,0,.5,1].map(v=><button className={rootHeight===v?'picked':''} key={v} onClick={()=>setRootHeight(v)}>{v>0?'+':''}{v}</button>)}</div>
+    <p className="context-help">Neue Oberkante: {proposedElevation(doc,floor,pointer??{x:0,y:0},rootHeight).toLocaleString("de-DE")} H. F1 beginnt standardmäßig eine volle Wandhöhe über F0. Dann auf die freie Fläche klicken.</p></div>}
   {menu&&<ContextEditor menu={menu} onClose={()=>closePop(setMenu)} onNotice={notify} activePiece={activePiece}/>}
  </div>;
 }
@@ -241,6 +243,8 @@ function App(){
  const selected=useEditor(s=>s.selected);
  const numbers=stats(doc,floor);
  const [welcome,setWelcome]=useState(true);
+ const copyFloor=useEditor(s=>s.copyFloorFromBelow),repairHeights=useEditor(s=>s.fixOldFloorHeights);
+ const legacyOverlapCount=misplacedUpperTiles(doc).length;
  useEffect(()=>{let cancelled=false;loadProject().then(savedDoc=>{if(!cancelled)hydrate(savedDoc);}).catch(()=>{if(!cancelled)hydrate(null);});return()=>{cancelled=true;};},[hydrate]);
  useEffect(()=>{if(loading||!modified)return;setSaved('speichert …');const timer=setTimeout(()=>saveProject(doc).then(()=>setSaved('gespeichert')).catch(()=>setSaved('Speicherfehler')),500);return()=>clearTimeout(timer);},[doc,modified,loading]);
  useEffect(()=>{const listener=(e:KeyboardEvent)=>{const target=e.target as HTMLElement|null;
@@ -276,7 +280,7 @@ function App(){
  return <div className="app-shell">
   <header className="hero-topbar">
    <div className="hero-brand"><div className="hero-mark"><Hammer size={32}/></div><div><strong>GHOSTFRAME <span>STUDIO</span></strong><small>RUST BASE PLANNER / STABILITY INTELLIGENCE / RAID ANALYSIS</small></div></div>
-   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.5</span></div>
+   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.6.2</span></div>
    <div className="top-actions"><span className="save-state"><Save size={13}/>{saved}</span>
     <button className="icon-button" onClick={undo} disabled={!past.length} title="Rückgängig"><Undo2 size={17}/></button>
     <button className="icon-button" onClick={redo} disabled={!future.length} title="Wiederholen"><Redo2 size={17}/></button>
@@ -310,6 +314,11 @@ function App(){
         <div><strong>ETAGE {floor}</strong><span>{floor===0?'Fundament-Ebene':`Ebene ${floor}`}</span></div>
         <button onClick={()=>setFloor(floor+1)} disabled={floor===20} aria-label="Etage höher"><ArrowUp size={17}/></button></div>
      <div className="floor-buttons">{Array.from({length:Math.min(6,Math.max(3,totalFloors,floor+1))},(_,i)=><button key={i} className={floor===i?'active':''} onClick={()=>setFloor(i)}>F{i}</button>)}</div>
+     <div className="floor-build-actions">
+       <button disabled={floor===0||!doc.tiles.some(t=>t.floor===floor-1)} onClick={()=>{const n=copyFloor();setNotice(n?`${n} Bodenplatten auf F${floor} erstellt. Höhe und Fundamentversätze übernommen.`:'Keine freien Flächen zum Übernehmen.');}} title="Grundflächen der darunterliegenden Etage als neue Bodenplatten mit korrekter Höhe übernehmen"><Layers3 size={15}/> Untergeschoss als Decke übernehmen</button>
+       {legacyOverlapCount>0&&<button className="repair-floor-heights" onClick={()=>{const n=repairHeights();setNotice(`${n} falsch übereinanderliegende Bauteile angehoben. Änderungen mit Strg+Z rückgängig.`);}} title="Repariert nur überlagerte Obergeschoss-Bauteile mit dem alten fehlerhaften Höhenwert 0 H"><Activity size={15}/> {legacyOverlapCount} ältere Etagenhöhe(n) korrigieren</button>}
+       <small>F1 = eine Wandhöhe über F0. Individuelle Fundamentversätze bleiben erhalten.</small>
+     </div>
      <div className="panel-head compact"><span><Database size={15}/> BLUEPRINTS</span></div>
      <div className="template-list"><button onClick={()=>demo('standard')}><span className="template-symbol">⌂</span><span><strong>Compact Compound</strong><small>Demo · 2 Geschosse</small></span><ChevronRight size={14}/></button>
        <button onClick={()=>demo('bunker')}><span className="template-symbol">▧</span><span><strong>Foundation Offset</strong><small>Demo · Höhenversatz / Bunker</small></span><ChevronRight size={14}/></button></div>

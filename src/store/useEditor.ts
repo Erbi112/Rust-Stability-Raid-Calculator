@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { produce } from 'immer';
+import { createFloorFromBelow, proposedElevation, repairMisplacedUpperTiles } from '../core/levels.ts';
 import type { BlueprintDocument } from '../core/blueprint.ts';
 import type { Point, TileShape } from '../core/geometry.ts';
 import { attachTo, exampleProject, exampleBunkerProject, newProject, placeRoot, removeEntity, updateSelected, upsertWall,
@@ -40,6 +41,8 @@ interface EditorStore {
   updateInsert:(insert:DoorInsert)=>void;
   updateRotation:(rotation:number)=>void;
   updateElevation:(elevation:number)=>void;
+  copyFloorFromBelow:()=>number;
+  fixOldFloorHeights:()=>number;
   undo:()=>void;
   redo:()=>void;
 }
@@ -60,7 +63,7 @@ export const useEditor=create<EditorStore>((set,get)=>({
   hydrate:(doc)=>set({doc:doc??newProject(),isLoading:false,past:[],future:[],modifiedAt:0}),
   setDocument:(doc)=>set({doc,past:[],future:[],selected:null,floor:0,modifiedAt:Date.now(),tool:'inspect'}),
   root:(shape,at,elevation,kind)=>{
-    const s=get(),next=placeRoot(s.doc,s.floor,shape,at,uid(),elevation??s.floor,kind);
+    const s=get(),next=placeRoot(s.doc,s.floor,shape,at,uid(),proposedElevation(s.doc,s.floor,at,elevation??0),kind);
     if(!next)return false;set(commit(s,next));return true;
   },
   attach:(sourceId,index,shape,relativeHeight=0,kind)=>{
@@ -85,6 +88,16 @@ export const useEditor=create<EditorStore>((set,get)=>({
   updateInsert:(insert)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{insert}))),
   updateRotation:(rotation)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{rotation}))),
   updateElevation:(elevation)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{elevation}))),
+  copyFloorFromBelow:()=>{
+    const s=get(),result=createFloorFromBelow(s.doc,s.floor,uid);
+    if(result.added)set(commit(s,result.document));
+    return result.added;
+  },
+  fixOldFloorHeights:()=>{
+    const s=get(),result=repairMisplacedUpperTiles(s.doc);
+    if(result.repaired)set(commit(s,result.document));
+    return result.repaired;
+  },
   undo:()=>set(s=>{
     if(!s.past.length)return {};
     return {doc:s.past[s.past.length-1]!,past:s.past.slice(0,-1),future:[s.doc,...s.future],selected:null,modifiedAt:Date.now()};

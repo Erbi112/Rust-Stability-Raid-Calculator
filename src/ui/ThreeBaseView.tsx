@@ -4,6 +4,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { BlueprintDocument, BuildingEdge, BuildingTile, MaterialGrade } from '../core/blueprint.ts';
 import { edgeAt, sameEdge, type Point } from '../core/geometry.ts';
 import {planToWorld,PLAN_UNIT_METERS,WALL_HEIGHT_METERS} from '../core/projection.ts';
+import { tileHeight, misplacedUpperTiles } from '../core/levels.ts';
+import { useEditor } from '../store/useEditor.ts';
 
 const UNIT=PLAN_UNIT_METERS;
 const WALL_HEIGHT=WALL_HEIGHT_METERS;
@@ -15,6 +17,11 @@ function owningTile(doc:BlueprintDocument,e:BuildingEdge):BuildingTile|undefined
 }
 export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
  const mount=useRef<HTMLDivElement>(null),[mode,setMode]=useState<ViewFloorMode>('all'),[exploded,setExploded]=useState(false);
+ const fixOldHeights=useEditor(s=>s.fixOldFloorHeights);
+ const staleTiles=misplacedUpperTiles(doc);
+ const elevations=[...new Set(doc.tiles.map(t=>t.floor))].sort((a,b)=>a-b).map(level=>({
+  level,heights:[...new Set(doc.tiles.filter(t=>t.floor===level).map(t=>tileHeight(t)))].sort((a,b)=>a-b)
+ }));
  const [hull,setHull]=useState(false),[failure,setFailure]=useState<string|null>(null),[top,setTop]=useState(false);
  useEffect(()=>{
   const container=mount.current;if(!container)return;
@@ -31,12 +38,14 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
   const scene=new THREE.Scene();scene.fog=new THREE.Fog(0x121919,35,100);
   const camera=new THREE.PerspectiveCamera(42,Math.max(1,container.clientWidth)/Math.max(1,container.clientHeight),0.1,300);
   const center=new THREE.Vector3(0,1,0);
-  if(doc.tiles.length){
-    center.set(doc.tiles.reduce((s,t)=>s+t.polygon.reduce((a,v)=>a+v.x,0)/t.polygon.length,0)/doc.tiles.length*UNIT,
-      1.0+Math.max(0,...doc.tiles.map(t=>t.floor))*0.65,
-      doc.tiles.reduce((s,t)=>s+t.polygon.reduce((a,v)=>a+v.y,0)/t.polygon.length,0)/doc.tiles.length*UNIT);
-  }
-  const radius=Math.max(10,Math.sqrt(doc.tiles.length)*3.2,Math.max(0,...doc.tiles.map(t=>t.floor))*3.2+6);
+  const allPoints=doc.tiles.flatMap(t=>t.polygon);
+  const xs=allPoints.map(p=>p.x*UNIT),zs=allPoints.map(p=>p.y*UNIT);
+  const minX=xs.length?Math.min(...xs):0,maxX=xs.length?Math.max(...xs):0;
+  const minZ=zs.length?Math.min(...zs):0,maxZ=zs.length?Math.max(...zs):0;
+  const ys=doc.tiles.map(t=>tileHeight(t)*WALL_HEIGHT);
+  const minY=ys.length?Math.min(...ys):0,maxY=ys.length?Math.max(...ys)+WALL_HEIGHT:WALL_HEIGHT;
+  center.set((minX+maxX)/2,(minY+maxY)/2,(minZ+maxZ)/2);
+  const radius=Math.max(7,Math.hypot(maxX-minX,maxZ-minZ,maxY-minY)*1.12);
   camera.position.set(center.x+radius*.9,center.y+radius*.82,center.z+radius*1.10);
   camera.lookAt(center);
   const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.075;
@@ -48,10 +57,10 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
   sun.shadow.camera.left=-28;sun.shadow.camera.right=28;sun.shadow.camera.top=28;sun.shadow.camera.bottom=-28;
   scene.add(sun);
   const fill=new THREE.DirectionalLight(0xa9c1ce,1.4);fill.position.set(11,9,-15);scene.add(fill);
-  const minY=Math.min(0,...doc.tiles.map(t=>(t.elevation??t.floor)*WALL_HEIGHT));
-  const grid=new THREE.GridHelper(80,80,0x4b554f,0x333c3b);grid.position.y=Math.min(-.46,minY-.46);scene.add(grid);
+  const minGroundY=Math.min(0,...doc.tiles.map(t=>tileHeight(t)*WALL_HEIGHT));
+  const grid=new THREE.GridHelper(80,80,0x4b554f,0x333c3b);grid.position.y=Math.min(-.46,minGroundY-.46);scene.add(grid);
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(90,90),new THREE.MeshStandardMaterial({color:0x232a26,roughness:1}));
-  ground.rotation.x=-Math.PI/2;ground.position.y=Math.min(-.5,minY-.5);ground.receiveShadow=true;scene.add(ground);
+  ground.rotation.x=-Math.PI/2;ground.position.y=Math.min(-.5,minGroundY-.5);ground.receiveShadow=true;scene.add(ground);
   const group=new THREE.Group();scene.add(group);
   const meshMaterial=(grade:MaterialGrade,transparent=false)=>new THREE.MeshStandardMaterial({
     color:COLORS[grade],roughness:grade==='metal'||grade==='armored'?.57:.93,metalness:grade==='metal'||grade==='armored'?.32:0,
@@ -59,7 +68,7 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
   });
   const visible=(f:number)=>mode==='all'||f===floor;
   const offset=(f:number)=>exploded?f*1.25:0;
-  const tileY=(t:BuildingTile)=>((t.elevation??t.floor)*WALL_HEIGHT)+offset(t.floor);
+  const tileY=(t:BuildingTile)=>(tileHeight(t)*WALL_HEIGHT)+offset(t.floor);
   const addBox=(parent:THREE.Group,length:number,height:number,depth:number,color:number,
     x:number,y:number,z:number,rotate=0,opacity=1)=>{
     const mat=new THREE.MeshStandardMaterial({color,roughness:.83,metalness:.09,transparent:opacity<1,opacity});
@@ -142,6 +151,13 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
    <div className="three-scene" ref={mount} aria-label="Interaktive räumliche 3D-Projektion des aktuellen Blueprints"/>
    {failure&&<div className="three-failure">{failure}</div>}
    <div className="three-head"><span className="live-dot"/><strong>3D / GEBÄUDEMODELL</strong><span className="three-label">Live aus Blueprint</span></div>
+   {staleTiles.length>0&&<div className="three-height-warning" role="alert">
+     <strong>{staleTiles.length} Bauteil(e) auf Obergeschossen liegen bei 0 H.</strong>
+     <button onClick={()=>fixOldHeights()}>Alte Etagenhöhen korrigieren</button>
+   </div>}
+   <div className="three-elevation-legend" aria-label="Höhen der Geschosse">
+     {elevations.filter(e=>mode==='all'||e.level===floor).map(e=><span key={e.level}>F{e.level}: {e.heights.map(h=>`${(h*WALL_HEIGHT).toLocaleString('de-DE',{maximumFractionDigits:2})} m`).join(' / ')}</span>)}
+   </div>
    <div className="three-controls">
     <button className={mode==='all'?'active':''} onClick={()=>setMode('all')}>Alle Etagen</button>
     <button className={mode==='current'?'active':''} onClick={()=>setMode('current')}>Nur L{floor}</button>
