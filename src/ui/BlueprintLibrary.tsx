@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import { BookOpen, Database, Download, FilePlus, FolderOpen, RefreshCw, Search, SlidersHorizontal, Trash2, X } from 'lucide-react';
-import type {BlueprintDocument,MaterialGrade} from '../core/blueprint.ts';
+import type {BlueprintDocument} from '../core/blueprint.ts';
 import {BASE_ROLES,BIOMES,BOOLS,BUNKER_TYPES,FEATURE_GROUPS,FEATURE_KEYS,FEATURE_LABELS,GROUPS,FOOTPRINTS,BUILD_STAGES,DEFENSE_MODES,
  blueprintsMatchFilter,compareLibraryBase,defaultFilter,defaultMetadata,metadataOf,
  type BlueprintMetadata,type FeatureKey,type GroupSize,type LibraryEntry,type LibraryFilter,type KnownBoolean} from '../core/library.ts';
@@ -144,7 +144,7 @@ export function BlueprintLibrary({current,onOpen,notify}:Props){
      <summary>{group.label}<span>{group.keys.filter(k=>filters.featureConstraints[k]!==undefined).length} Filter</span></summary>
      <div className="library-features">{group.keys.map(k=><label className="library-feature" key={k}><span>{FEATURE_LABELS[k]}</span><select aria-label={`Filter ${FEATURE_LABELS[k]}`} className={filters.featureConstraints[k]?'filter-active':''} value={filters.featureConstraints[k]??'all'} onChange={e=>setRequirement(k,e.target.value)}><option value="all">Beliebig</option>{BOOLS.map(v=><option key={v} value={v}>{text(v)}</option>)}</select></label>)}</div>
    </details>)}
-   {featureRequirements>0&&<div className="library-active-filter-row">{Object.entries(filters.featureConstraints).map(([k,v])=><button key={k} type="button" onClick={()=>setRequirement(k,'all')} title="Diesen Filter entfernen">{FEATURE_LABELS[k as FeatureKey]}: {text(v)} ×</button>)}</div>}
+   {featureRequirements>0&&<div className="library-active-filter-row">{Object.entries(filters.featureConstraints).map(([k,v])=><button key={k} type="button" onClick={()=>setRequirement(k as FeatureKey,'all')} title="Diesen Filter entfernen">{FEATURE_LABELS[k as FeatureKey]}: {text(v)} ×</button>)}</div>}
    <p className="library-small">Alle Bedingungen werden kombiniert. Mehrere Gruppen zählen als ODER; verschiedene Feature-Filter als UND. „Nein“ ist ein bestätigtes Nein, fehlende Angaben sind „Unbekannt“. Keine ungeprüften Wahrscheinlichkeiten.</p>
   </section>
   <div className="library-results-head"><strong>{filtered.length} TREFFER</strong><label>Sortieren <select value={sort} onChange={e=>setSort(e.target.value as typeof sort)}><option value="new">Zuletzt gespeichert</option><option value="name">Name A–Z</option><option value="similarity">Strukturähnlichkeit</option><option value="upkeep">Geringster Upkeep</option><option value="rockets">Wenigste Rockets</option><option value="size">Meiste Grundflächen</option><option value="floors">Meiste Etagen</option></select></label></div>
