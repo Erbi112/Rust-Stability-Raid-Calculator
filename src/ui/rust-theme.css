@@ -1,0 +1,63 @@
+/* GHOSTFRAME: independent industrial construction theme. No Rust copyrighted art assets. */
+:root{color:#e8dbca;background:#151719}
+body,.app-shell{background:#181a19!important;color:#e5d7c8!important}
+.topbar{background:linear-gradient(#30302d,#252623)!important;border-bottom:2px solid #9b5538!important}
+.brand-mark{background:#8a4933!important;border:1px solid #cf8150!important;color:#ffe0bd!important;border-radius:5px!important;box-shadow:none!important}
+.brand strong{font-family:Impact,'Arial Narrow',Arial,sans-serif;letter-spacing:2px!important}
+.brand small{color:#cc9870!important}
+.top-center,.sidebar,.statusbar{background:#292b28!important;border-color:#604a3c!important}
+.workspace{background:#191b1a!important}
+.button.primary{background:#bd653c!important;color:#fff1e4!important;border-color:#df9864!important}
+.button.primary:hover{background:#d77848!important}
+.button.flat,.icon-button{background:#3a3c38!important;color:#f0d9c1!important;border-color:#6e5a4b!important}
+.sidebar-title,.section-heading{color:#d59a70!important}
+.sidebar-title svg,.section-heading svg{color:#c68c61!important}
+.tool-item{color:#e4d0b8!important}
+.tool-item.active{background:#73452f!important;border-color:#c8784b!important}
+.tool-icon{background:#47413b!important;color:#e6b48a!important}
+.tool-item.active .tool-icon{background:#ad653e!important;color:#ffe3c7!important}
+.tool-content small,.keycap,.side-action,.canvas-top-left{color:#bda891!important}
+.side-divider{background:#5b4b40!important}
+.canvas-top-left,.canvas-top-right button,.canvas-bottom-right,.chip{background:#292a27ec!important;border-color:#665243!important}
+.canvas-top-left strong{color:#ffcfab!important}
+.live-dot,.status-light{background:#e48954!important;box-shadow:none!important}
+.canvas-top-right button.active{background:#683f2e!important;color:#ffd3ac!important}
+.floor-control,.stat-grid>div,.selected-header,.empty-inspector{background:#333530!important;border-color:#594b40!important}
+.floor-control button,.floor-pills button,.side-action:hover{background:#433b34!important;border-color:#685441!important;color:#ffcd9f!important}
+.floor-pills button.on{background:#9a5233!important;border-color:#d78955!important}
+.stat-grid strong,.selected-glyph,.empty-inspector svg{color:#e4ae81!important}
+.data-status{background:#32332e!important;border-color:#7a573e!important}
+.data-status>div,.pulse{color:#e3a773!important}
+.canvas-empty{background:#2f302bf4!important;border:1px solid #9b6947!important;border-top:3px solid #cb7648!important;border-radius:5px!important}
+.canvas-empty>svg{color:#de9260!important}.canvas-empty h3{color:#f9d2b3!important}
+.canvas-empty p{color:#bcaa98!important}.canvas-empty button{background:#a15b3d!important;color:#ffebd5!important;border-color:#d98e63!important}
+.side-action{color:#e3c8ae!important}
+.context-toast{position:absolute;z-index:25;bottom:75px;left:50%;transform:translateX(-50%);padding:11px 16px;background:#563b2d;border:1px solid #b3744b;color:#f8dcc2;display:flex;gap:10px;border-radius:4px;box-shadow:0 10px 30px #0007;font-size:12px}
+.context-toast button{background:none;border:0;color:inherit}
+.builder-tip{font-size:11px;line-height:1.6;color:#b99d83;margin:0 0 14px}
+.catalog{border:1px solid #58473a;border-radius:5px;overflow:hidden}
+.catalog-head{width:100%;padding:11px 9px;display:flex;justify-content:space-between;text-align:left;background:#36372f;color:#e8c09e;border:0;border-bottom:1px solid #564b3b;font-size:11px;font-weight:900}
+.catalog-head:hover{background:#554032!important}
+.catalog-parts{padding:6px 9px;background:#2b2c29;border-bottom:1px solid #514336}
+.catalog-parts>div{padding:6px 2px;color:#bca893;font-size:11px;display:flex;align-items:center;gap:9px}
+.catalog-square{width:7px;height:7px;background:#995733;border:1px solid #da955b;transform:rotate(45deg)}
+.start-shapes{display:flex;gap:8px;align-items:center;justify-content:center}
+.start-shapes button{display:flex;align-items:center;gap:7px;justify-content:center;flex:1}
+.rust-context{position:absolute;z-index:22;overflow:auto;max-height:calc(100% - 55px);width:min(345px,90%);background:#34352ff9;border:1px solid #916346;border-top:3px solid #d0794d;border-radius:5px;box-shadow:0 16px 46px #000b;color:#ead8c5}
+.rust-context header{position:sticky;top:0;z-index:2;background:#47362b;padding:12px;display:flex;justify-content:space-between;color:#f9d4b0;font-size:12px;font-weight:900}
+.rust-context header span{display:flex;align-items:center;gap:7px}
+.rust-context header button{background:transparent;border:0;color:#f9d4b0}
+.rust-menu-section{padding:12px;border-bottom:1px solid #655040}
+.rust-menu-section>strong{display:block;color:#edb68d;font-size:10px;letter-spacing:1px;margin-bottom:9px}
+.rust-menu-section p{font-size:10px;line-height:1.5;color:#bca68e}
+.rust-menu-section label{display:block;color:#e4c5aa;font-size:11px;font-weight:800;margin:11px 0 5px}
+.rust-menu-section select,.rust-menu-section input{background:#242623;color:#f6dfc7;border:1px solid #745741;border-radius:3px;padding:8px;width:100%;min-width:0;font-size:12px}
+.rust-menu-choices,.rust-types,.rust-steps{display:flex;flex-wrap:wrap;gap:5px}
+.rust-menu-choices button,.rust-types button,.rust-steps button,.rust-height button{background:#504336;color:#f2d1b3;border:1px solid #846047;border-radius:3px;padding:9px 8px;font-size:11px;font-weight:800}
+.rust-menu-choices button{display:flex;gap:7px;align-items:center;justify-content:center;flex:1}
+.rust-steps button.chosen,.rust-types button.chosen{background:#a85534;border-color:#efa36d;color:#fff5e6}
+.rust-height{display:flex;gap:5px;align-items:center}
+.rust-height button{white-space:nowrap}.rust-height input{text-align:center;width:90px}
+.rust-columns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rust-delete{margin-top:12px;background:#5c3028;color:#fac9ad;border:1px solid #a96545;border-radius:3px;padding:10px;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;font-weight:800}
+@media(max-width:1150px){.main-layout{grid-template-columns:215px minmax(300px,1fr) 260px}.rust-context{width:325px}.builder-tip{font-size:10px}}
