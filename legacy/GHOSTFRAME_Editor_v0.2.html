@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>GHOSTFRAME v0.2 — Rust Building Snap Editor</title>
+<style>
+:root{color-scheme:dark;--bg:#070c16;--panel:#0e1726;--panel2:#101d30;--line:#223650;--muted:#8295ae;--text:#e8f2ff;--cyan:#39e7ed;--purple:#b49bff;--gold:#ffba6a;--green:#64e9b6}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 65% 8%,#0e2940 0,#070c16 43%),var(--bg);font:14px/1.45 Inter,ui-sans-serif,system-ui,sans-serif;color:var(--text)}button,select,input{font:inherit}button{cursor:pointer}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--cyan)}.shell{min-height:100vh;display:grid;grid-template-columns:232px minmax(450px,1fr) 320px;grid-template-rows:68px 1fr}.top{grid-column:1/4;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:0 26px;background:rgba(8,14,26,.92)}.brand{letter-spacing:.16em;font-weight:900;font-size:20px}.brand b{color:var(--cyan)}.subtitle{font-size:10px;color:var(--muted);letter-spacing:.2em;margin-top:1px}.righttop{display:flex;gap:12px;align-items:center;color:#9bacc0;font-size:12px}.pill{padding:6px 10px;border:1px solid #2e5c69;border-radius:99px;color:var(--cyan);font-size:11px;white-space:nowrap}.sidebar,.inspector{padding:22px 16px;background:rgba(12,21,36,.97);min-height:calc(100vh - 68px)}.sidebar{border-right:1px solid var(--line)}.inspector{border-left:1px solid var(--line);overflow:auto}.section{font-size:10px;letter-spacing:.19em;font-weight:800;color:var(--muted);margin:0 0 14px}.nav{display:flex;align-items:center;gap:10px;padding:12px;border-radius:9px;color:#9bacc0;margin-bottom:6px;border:1px solid transparent;background:transparent;width:100%;text-align:left}.nav.active{border-color:#1d6376;background:#0c3545;color:#adfaff}.nav i{font-style:normal;font-size:17px;width:21px}.divider{height:1px;background:var(--line);margin:24px 0}.tools{display:grid;grid-template-columns:1fr 1fr;gap:7px}.tool{min-height:65px;border:1px solid var(--line);border-radius:10px;background:#101d30;color:#bdd0e5;text-align:center;padding:7px;font-size:11px}.tool strong{display:block;font-size:22px;color:#c2d9f6;font-weight:600}.tool.active{border-color:var(--cyan);color:var(--cyan);background:#092936}.smallnote{font-size:11px;color:#8497ad;line-height:1.55}.main{padding:24px;min-width:0}.headline{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}.headline h1{font-size:24px;letter-spacing:-.025em;margin:0 0 5px}.headline p{color:var(--muted);font-size:12px;margin:0}.acts{display:flex;gap:9px;align-items:center}.action{background:#13253a;border:1px solid #33516c;color:#c4e7f3;border-radius:8px;padding:9px 13px}.action.strong{background:linear-gradient(105deg,#00a6b2,#437ba7);border-color:transparent;color:white;font-weight:700}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:23px 0}.stat{border:1px solid var(--line);border-radius:12px;background:#0f1a2c;padding:12px 14px;min-width:0}.stat .num{font-size:24px;font-weight:800;line-height:1.3;white-space:nowrap}.stat .lab{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:4px}.cyan{color:var(--cyan)}.purple{color:var(--purple)}.gold{color:var(--gold)}.stage{border:1px solid #29415b;border-radius:14px;background:linear-gradient(135deg,rgba(20,43,66,.85),rgba(8,17,31,.95));min-height:560px;position:relative;overflow:hidden}.stage:before{content:"";position:absolute;inset:0;background-image:linear-gradient(#29415c3b 1px,transparent 1px),linear-gradient(90deg,#29415c3b 1px,transparent 1px);background-size:30px 30px;opacity:.55;pointer-events:none}.toolbar{display:flex;align-items:center;gap:8px;position:absolute;z-index:2;top:14px;left:15px;right:15px;flex-wrap:wrap}.mini{border:1px solid #36506b;background:#101e31c9;padding:7px 11px;border-radius:7px;color:#b9ccdf;font-size:12px}.mini.active{background:#0c3b4b;color:#9df7ff;border-color:#328f9e}.map{position:absolute;inset:70px 0 35px;width:100%;height:calc(100% - 105px);touch-action:none}.legend{position:absolute;bottom:15px;left:16px;right:16px;display:flex;gap:18px;flex-wrap:wrap;font-size:10px;color:#a0b7c9}.dot{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:6px}.dot.obs{background:var(--cyan)}.dot.infer{background:#a18be6}.dot.raid{background:var(--gold)}.mapnode{cursor:pointer;transition:filter .12s}.mapnode:hover{filter:brightness(1.4)}.panel{border:1px solid var(--line);border-radius:12px;background:#101d30;padding:14px;margin-bottom:13px}.panel h3{margin:0 0 11px;font-size:14px}.field{margin-bottom:11px}.field label{display:block;color:#a5bbd1;font-size:11px;margin-bottom:5px}.field select,.field input[type=number]{width:100%;color:#effaff;border:1px solid #37516c;background:#0a1424;border-radius:7px;padding:9px}.field input[type=range]{width:100%;accent-color:#36dbe8}.split{display:flex;justify-content:space-between;font-size:11px;color:#b1c1d5}.candidate{border:1px solid #2b425e;background:#0c192a;padding:11px;border-radius:9px;margin-bottom:8px;cursor:pointer}.candidate.active{border-color:#5e95c7;background:#102742}.candidate .head{display:flex;justify-content:space-between;align-items:center;font-size:12px}.candidate b{font-size:14px}.bar{height:5px;background:#1c3046;overflow:hidden;border-radius:8px;margin-top:10px}.bar span{display:block;height:100%;background:linear-gradient(90deg,#258fa3,#55f3ed);border-radius:8px}.notice{font-size:11px;color:#f7d4a9;background:#3a2a1c6b;border:1px solid #8c653c66;border-radius:8px;padding:10px;margin-top:10px}.footer{font-size:11px;color:#8097ad;line-height:1.6;margin-top:12px}.route{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #263b53;font-size:12px}.route b{color:#e2f6ff}.titleline{display:flex;align-items:center;justify-content:space-between}.hidden{display:none}.kbd{background:#243c55;border:1px solid #3b5673;border-radius:4px;padding:0 5px}.source{font-size:11px;color:#8fa9c7;padding:4px 0}.source a{color:#7cddf8;text-decoration:none}@media(max-width:1100px){.shell{grid-template-columns:190px 1fr;grid-template-rows:68px auto auto}.top{grid-column:1/3}.inspector{grid-column:1/3;border-top:1px solid var(--line);border-left:0;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.inspector>.section{grid-column:1/-1;margin:0}.panel{margin:0}}@media(max-width:750px){.shell{display:block}.top{height:auto;padding:15px}.righttop{display:none}.sidebar{min-height:auto;display:none}.main{padding:12px}.stats{grid-template-columns:repeat(2,1fr)}.stage{min-height:480px}.inspector{display:block;padding:12px}.panel{margin-bottom:12px}}
+
+/* v0.2 interactive snap editor */
+.tools{grid-template-columns:repeat(2,minmax(0,1fr))}.tool{min-height:72px;letter-spacing:.005em;font-weight:700}.tool.active{box-shadow:inset 0 0 0 1px #47d4dd,0 0 19px #11637c66}.stage{min-height:640px;background:radial-gradient(circle at center,#163752,#06101f 74%)}
+.stage:before{background-size:39px 39px;opacity:.17}.map{inset:58px 0 79px;height:calc(100% - 137px);cursor:crosshair}.toolbar{top:11px;left:13px;right:13px}.legend{bottom:12px;left:15px;right:15px;gap:10px;font-size:9px}.legend span:last-child{color:#6598aa}
+.statusbar{position:absolute;z-index:3;bottom:43px;left:15px;right:15px;display:flex;justify-content:space-between;gap:12px;font-size:11px;color:#8db7d3;pointer-events:none}
+#editorStatus{color:#9debf0;font-weight:600}.placement-help{position:absolute;z-index:2;top:57px;left:15px;right:15px;max-width:550px;color:#91b8ce;font-size:11px;line-height:1.5;pointer-events:none}
+.zoom-controls{position:absolute;z-index:4;right:13px;top:102px;display:flex;flex-direction:column;gap:6px}.zoom-controls button{background:#101f33dd;border:1px solid #355773;color:#c4eefe;min-width:32px;min-height:32px;border-radius:7px;cursor:pointer;font-size:20px}
+.mapnode{transition:none}.acts{flex-wrap:wrap}.action{white-space:nowrap}.candidate{cursor:pointer}#clearPlan{color:#ffcb9f}
+@media(max-width:750px){.sidebar{display:block;padding:10px;min-height:auto;border-right:0}.sidebar>.divider,.sidebar>.smallnote,.sidebar>.section:nth-of-type(1),.sidebar>.nav{display:none}.sidebar .tools{display:grid;grid-template-columns:repeat(3,1fr)}.tools .tool{min-height:46px}.stage{min-height:560px}.map{top:80px;bottom:70px;height:calc(100% - 150px)}.placement-help{font-size:10px;right:64px;top:47px}.toolbar .mini{font-size:10px;padding:5px}.zoom-controls{top:96px}.legend{font-size:8px}.acts .action{padding:8px}.righttop{display:flex;flex-wrap:wrap;gap:5px}.righttop>span{display:none}.top{gap:10px;flex-wrap:wrap}}
+</style></head><body><div class="shell"><header class="top"><div><div class="brand">GHOST<b>FRAME</b> <span style="font-size:12px;letter-spacing:0;color:#537a92">/ RUST</span></div><div class="subtitle">STABILITY &amp; RAID INTELLIGENCE</div></div><div class="righttop"><span>BUILD DATASET <b style="color:var(--gold)">DEMO ONLY</b></span><span class="pill">● CONCEPT PROTOTYPE</span><button class="action" id="export">↓ JSON EXPORT</button><button class="action" id="importBtn">↑ JSON IMPORT</button><input accept=".json,application/json" hidden="" id="importFile" type="file"/></div></header>
+<aside class="sidebar"><div class="section">WORKSPACE</div><button class="nav active" data-page="studio"><i>▦</i> Blueprint Studio</button><button class="nav" data-page="match"><i>◈</i> Stability Analysis</button><button class="nav" data-page="raid"><i>⌁</i> Raid Pathfinding</button><button class="nav" data-page="library"><i>▤</i> Blueprint Library</button><div class="divider"></div><div class="section">EDITOR TOOLS</div><div class="tools"><button class="tool active" data-tool="inspect"><strong>⌖</strong>Inspect</button><button class="tool" data-tool="square">□ Quadrat</button><button class="tool" data-tool="triangle">△ Dreieck</button><button class="tool" data-tool="erase">× Entfernen</button><button class="tool" data-tool="wall">▰ Wand</button><button class="tool" data-tool="doorway">▯ Türrahmen</button></div><div class="divider"></div><div class="section">MODEL INFORMATION</div><div class="smallnote">Rust-artiges Kanten-Snapping: Quadrate und Dreiecke teilen vollständige Kanten. Neigung und Ausrichtung entstehen automatisch.</div><div class="divider"></div><div class="smallnote">Die Muster, Wahrscheinlichkeiten und Kosten sind <b>illustrativ</b>. Keine echte Rust-Simulation oder validierte Base-Datenbank.</div></aside>
+<main class="main"><div class="headline"><div><h1 id="pageTitle">Blueprint Reconstruction</h1><p id="pageSub">Observed structures × stability signatures × candidate hypotheses</p></div><div class="acts"><button class="action" id="clearPlan" title="Leerer neuer Grundriss">Leeren</button><button class="action" id="redoBtn" title="Wiederholen (Strg+Y)">↷</button><button class="action" id="undoBtn" title="Rückgängig (Strg+Z)">↶</button><button class="action" id="reset">↺ Demo zurücksetzen</button><button class="action strong" id="analyse">◈ ANALYSE STARTEN</button></div></div><div class="stats"><div class="stat"><div class="num cyan" id="count">6 / 1</div><div class="lab">Flächen / Wände</div></div><div class="stat"><div class="num purple" id="matches">3</div><div class="lab">Demo-Kandidaten</div></div><div class="stat"><div class="num" id="floorStat">EG / 3</div><div class="lab">Aktuelle Ebene</div></div><div class="stat"><div class="num gold" id="costStat">–</div><div class="lab">Raid-Kosten (Demo)</div></div></div><div class="stage"><div class="toolbar"><button class="mini active" data-floor="0">EG</button><button class="mini" data-floor="1">1. OG</button><button class="mini" data-floor="2">2. OG</button><span style="flex:1"></span><button class="mini active" data-overlay="combined">Hybrid</button><button class="mini" data-overlay="observed">Sichtbar</button><button class="mini" data-overlay="predicted">Hypothese</button><button class="mini" data-overlay="raid">Raid</button></div><svg aria-label="Rust-Grundriss mit geometrisch korrekt einrastenden Dreiecken, Quadraten und Kanten-Bauteilen" class="map" id="canvas" role="img" viewBox="0 0 800 520" viewbox="0 0 640 465"></svg><div class="legend"><span><i class="dot obs"></i>Erfasst</span><span><i class="dot infer"></i>Hypothese</span><span><i class="dot raid"></i>Raid-Route</span><span>Click: Bauteil auswählen oder platzieren</span><span>Links: setzen / wählen</span><span>Mausrad: Zoom</span><span>Shift + Ziehen: verschieben</span><span>Entf: löschen</span></div><div class="statusbar"><div id="editorStatus">Bauteil oder Kante auswählen</div><div id="floorInfo">Erdgeschoss · 6 Flächen</div></div><div class="placement-help">① Quadrat / Dreieck wählen  →  ② Türkise Andockfläche anklicken  →  ③ Automatisch im richtigen Winkel platzieren</div><div class="zoom-controls"><button aria-label="Vergrößern" id="zoomIn" title="Vergrößern">＋</button><button aria-label="Verkleinern" id="zoomOut" title="Verkleinern">－</button><button aria-label="Grundriss einpassen" id="zoomFit" title="Grundriss einpassen">⌗</button></div></div><p class="footer">Geometrische Kantenplatzierung ist funktionsfähig. Rust-spezifische Bauverbote, Höhenversatz, Traglast, echte Stabilitätsmodelle und Raid-Kosten müssen separat validiert werden. Kandidaten- und Kostenwerte sind weiterhin ausschließlich Demo.</p></main>
+<aside class="inspector"><div class="section">INTELLIGENCE PANEL</div><section class="panel"><div class="titleline"><h3>Ausgewähltes Bauteil</h3><span class="pill" id="selectedId">F-1</span></div><div class="field"><label for="material">Material / Tier</label><select id="material"><option value="twig">Twig</option><option value="wood">Wood</option><option selected="" value="stone">Stone</option><option value="metal">Sheet metal</option><option value="hqm">Armored</option></select></div><div class="field"><label for="partType">Bauteiltyp</label><select id="partType"><option value="foundation">Fundament</option><option value="floor">Boden / Decke</option><option value="wall">Wand (auf Kante)</option><option value="doorway">Türrahmen (auf Kante)</option><option value="unknown">Unbekannt</option></select></div><div class="field"><div class="split"><label for="stability">Gemessene Stabilität</label><b id="stabValue">85%</b></div><input id="stability" max="100" min="0" type="range" value="85"/></div><button class="action" id="savepiece" style="width:100%">↳ Bauteil aktualisieren</button></section><section class="panel"><div class="titleline"><h3>Blueprint Matching</h3><span style="font-size:10px;color:var(--gold)">DEMO MODE</span></div><div id="candidates"></div><div class="notice">Match-Werte zeigen nur eine synthetische Heuristik für die UI. Sie sind keine statistisch kalibrierten Wahrscheinlichkeiten.</div></section><section class="panel"><h3>Raid Planning</h3><div class="route"><span>Strategie</span><b id="strategy">Expected Cost</b></div><div class="route"><span>Route (Demo)</span><b id="route">Süd → Core</b></div><div class="route"><span>Schwefel (Demo)</span><b id="sulfur">–</b></div><div class="route"><span>Worst Case (Demo)</span><b id="worst">–</b></div><div class="field" style="margin-top:12px"><label>Optimierungsziel</label><select id="objective"><option value="expected">Geringster Erwartungswert</option><option value="worst">Geringster Worst Case</option><option value="risk">Geringste Unsicherheit</option></select></div><div class="smallnote">Später: mehrstufige Routen, individuelle Baukosten je Kandidat, Splash-Damage, Einsturzketten und erneute Hypothesenbewertung nach einem Breach.</div></section></aside></div>
+<script>
+'use strict';
+// GHOSTFRAME v0.2 — geometric Rust-style edge snapping.
+// Geometry is real; matching probabilities and raid values remain demonstrative.
+const SVG_NS='http://www.w3.org/2000/svg';
+const svg=document.getElementById('canvas');
+const $=id=>document.getElementById(id);
+const SIDE=78, ALT=SIDE*Math.sqrt(3)/2, EPS=1e-5;
+const camera={x:400,y:265,zoom:1};
+const materials={twig:'#605646',wood:'#926a49',stone:'#254a5e',metal:'#246378',hqm:'#4a5688'};
+const templates=[{name:'Compact Core',tag:'Schema A · DEMO',cost:5600},{name:'Triangle Bunker',tag:'Schema B · DEMO',cost:7400},{name:'Honeycomb',tag:'Schema C · DEMO',cost:9200}];
+let pieces=[],walls=[],nextId=1,selected=null,floor=0,tool='inspect',overlay='combined',candidate=0,objective='expected',hover=null;
+let history=[],future=[],pointerDown=null;
+const clone=p=>JSON.parse(JSON.stringify(p));
+const vec=(x,y)=>({x,y});
+const add=(a,b)=>vec(a.x+b.x,a.y+b.y);
+const sub=(a,b)=>vec(a.x-b.x,a.y-b.y);
+const mul=(a,t)=>vec(a.x*t,a.y*t);
+const dot=(a,b)=>a.x*b.x+a.y*b.y;
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const mid=(a,b)=>mul(add(a,b),0.5);
+const polygonCenter=poly=>mul(poly.reduce((s,v)=>add(s,v),vec(0,0)),1/poly.length);
+const quant=p=>`${Math.round(p.x*10000)},${Math.round(p.y*10000)}`;
+const edgeKey=(a,b,z)=>[quant(a),quant(b)].sort().join('::')+'::'+z;
+const sideOf=(poly,i)=>[poly[i],poly[(i+1)%poly.length]];
+const el=(tag,attrs={},text)=>{const n=document.createElementNS(SVG_NS,tag);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;return n};
+const pts=poly=>poly.map(v=>`${v.x.toFixed(4)},${v.y.toFixed(4)}`).join(' ');
+function squareAt(x,y){return [vec(x,y),vec(x+SIDE,y),vec(x+SIDE,y+SIDE),vec(x,y+SIDE)]}
+function triangleAt(cx,cy){const r=SIDE/Math.sqrt(3);return [vec(cx,cy-r),vec(cx+SIDE/2,cy+r/2),vec(cx-SIDE/2,cy+r/2)]}
+function attached(source,i,shape){
+ const [a,b]=sideOf(source,i),v=sub(b,a),l=Math.hypot(v.x,v.y),out=vec(v.y/l,-v.x/l);
+ if(shape==='square')return [b,a,add(a,mul(out,SIDE)),add(b,mul(out,SIDE))];
+ return [b,a,add(mid(a,b),mul(out,ALT))];
+}
+function isSameEdge(a,b,c,d){return (dist(a,c)<EPS&&dist(b,d)<EPS)||(dist(a,d)<EPS&&dist(b,c)<EPS)}
+function edgeOccupied(poly,i,z,ignoreId){const [a,b]=sideOf(poly,i);return pieces.some(p=>p.floor===z&&p.id!==ignoreId&&p.poly.some((v,j)=>{const [c,d]=sideOf(p.poly,j);return isSameEdge(a,b,c,d)}))}
+function projected(poly,axis){const v=poly.map(p=>dot(p,axis));return [Math.min(...v),Math.max(...v)]}
+// SAT: touching at an edge or point is allowed. Only a strictly positive area overlap is blocked.
+function intersects(a,b){
+ for(const poly of [a,b]) for(let i=0;i<poly.length;i++){
+  const [v,w]=sideOf(poly,i),axis=vec(w.y-v.y,v.x-w.x),p=projected(a,axis),q=projected(b,axis);
+  if(Math.min(p[1],q[1])-Math.max(p[0],q[0])<=1e-3)return false;
+ }
+ return true;
+}
+function valid(poly,z){return !pieces.some(p=>p.floor===z&&intersects(poly,p.poly))}
+function createPiece(poly,shape,z,extra={}){return {id:`P-${String(nextId++).padStart(3,'0')}`,shape,floor:z,poly:clone(poly),material:'stone',stability:75,type:z?'floor':'foundation',...extra}}
+function createWall(a,b,z,kind){return {id:`W-${String(nextId++).padStart(3,'0')}`,kind,floor:z,a:clone(a),b:clone(b),material:'stone',stability:75}}
+function snapshot(){history.push(clone({pieces,walls,nextId}));if(history.length>100)history.shift();future=[]}
+function restore(s){pieces=clone(s.pieces);walls=clone(s.walls);nextId=s.nextId;selected=null;hover=null;redraw()}
+function undo(){if(!history.length)return;future.push(clone({pieces,walls,nextId}));restore(history.pop())}
+function redo(){if(!future.length)return;history.push(clone({pieces,walls,nextId}));restore(future.pop())}
+function sample(){
+ nextId=1;pieces=[];walls=[];
+ const base=[squareAt(-SIDE,-SIDE),squareAt(0,-SIDE),squareAt(-SIDE,0),squareAt(0,0)];
+ base.forEach((poly,i)=>pieces.push(createPiece(poly,'square',0,{stability:[100,87,84,68][i],material:i===1?'metal':'stone'})));
+ let t=attached(pieces[1].poly,1,'triangle');
+ if(valid(t,0))pieces.push(createPiece(t,'triangle',0,{stability:63}));
+ const last=pieces[pieces.length-1];
+ if(last.shape==='triangle'){
+  for(let i of [1,2,0]){const rotated=attached(last.poly,i,'square');if(valid(rotated,0)){pieces.push(createPiece(rotated,'square',0,{stability:52,material:'wood'}));break}}
+ }
+ // An example doorway is attached to an actual footprint edge, not inserted into a cell.
+ const core=pieces[2]; const [a,b]=sideOf(core.poly,2);walls.push(createWall(a,b,0,'doorway'));
+ selected={collection:'piece',id:pieces[0].id};floor=0;tool='inspect';overlay='combined';candidate=0;objective='expected';
+ camera.x=400;camera.y=265;camera.zoom=1;history=[];future=[];hover=null;
+ redraw();setActiveTool();setActiveFloor();setActiveOverlay();
+}
+function selectedObject(){if(!selected)return null;return selected.collection==='piece'?pieces.find(p=>p.id===selected.id):walls.find(w=>w.id===selected.id)}
+function worldFromEvent(e){const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const g=$('world');if(!g||!g.getScreenCTM())return vec(0,0);const m=pt.matrixTransform(g.getScreenCTM().inverse());return vec(m.x,m.y)}
+function pointSegDist(p,a,b){const v=sub(b,a),k=Math.max(0,Math.min(1,dot(sub(p,a),v)/dot(v,v)));return dist(p,add(a,mul(v,k)))}
+function onPolygon(p,poly){
+ let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+  const a=poly[i],b=poly[j];if(((a.y>p.y)!==(b.y>p.y))&&(p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x))inside=!inside;
+ }return inside;
+}
+function findPiece(pos){return [...pieces].reverse().find(p=>p.floor===floor&&onPolygon(pos,p.poly))||null}
+function findEdge(pos,all=false){const arr=[];for(const p of pieces.filter(p=>p.floor===floor))for(let i=0;i<p.poly.length;i++){
+ const [a,b]=sideOf(p.poly,i);const d=pointSegDist(pos,a,b);if(d<Math.max(11,15/camera.zoom))arr.push({p,i,a,b,d,key:edgeKey(a,b,floor)});
+ }arr.sort((a,b)=>a.d-b.d);return all?arr:arr[0]||null}
+function wallOnEdge(a,b,z){return walls.find(w=>w.floor===z&&isSameEdge(w.a,w.b,a,b))}
+function allSlots(shape){const out=[];const seen=new Set();for(const p of pieces.filter(p=>p.floor===floor))for(let i=0;i<p.poly.length;i++){
+  if(edgeOccupied(p.poly,i,floor,p.id))continue;
+  const poly=attached(p.poly,i,shape),k=poly.map(quant).sort().join('|');if(seen.has(k))continue;
+  seen.add(k);out.push({poly,source:p.id,edge:i,valid:valid(poly,floor)});
+ }return out;
+}
+function findPlacement(pos){
+ if(!pieces.some(p=>p.floor===floor)){
+  const cx=Math.round(pos.x/13)*13,cy=Math.round(pos.y/13)*13;
+  const poly=tool==='square'?squareAt(cx-SIDE/2,cy-SIDE/2):triangleAt(cx,cy);
+  return {poly,valid:true,first:true};
+ }
+ const possibles=allSlots(tool).filter(v=>onPolygon(pos,v.poly)||Math.min(...v.poly.map((a,i)=>pointSegDist(pos,a,v.poly[(i+1)%v.poly.length])))<=9/camera.zoom);
+ // An edge click works too, even when the pointer is on the previously placed part.
+ const nearest=findEdge(pos,true).filter(e=>!edgeOccupied(e.p.poly,e.i,floor,e.p.id));
+ for(const edge of nearest){const poly=attached(edge.p.poly,edge.i,tool);if(!possibles.some(s=>s.source===edge.p.id&&s.edge===edge.i))possibles.push({poly,source:edge.p.id,edge:edge.i,valid:valid(poly,floor),edgeClick:true})}
+ possibles.sort((a,b)=>{
+  const av=onPolygon(pos,a.poly)?0:1,bv=onPolygon(pos,b.poly)?0:1;
+  return av-bv||dist(pos,polygonCenter(a.poly))-dist(pos,polygonCenter(b.poly));
+ });
+ return possibles[0]||null;
+}
+function clear(svgParent){while(svgParent.firstChild)svgParent.removeChild(svgParent.firstChild)}
+function drawGrid(g){
+ const grid=el('g',{'pointer-events':'none'});
+ for(let k=-16;k<=16;k++){
+  const c=k*SIDE;
+  grid.append(el('line',{x1:c,y1:-1250,x2:c,y2:1250,stroke:'#31506a','stroke-width':.55,opacity:.22}));
+  grid.append(el('line',{x1:-1250,y1:c,x2:1250,y2:c,stroke:'#31506a','stroke-width':.55,opacity:.22}));
+ }
+ grid.append(el('line',{x1:-1250,y1:0,x2:1250,y2:0,stroke:'#396a7c','stroke-width':1,opacity:.32}));
+ grid.append(el('line',{x1:0,y1:-1250,x2:0,y2:1250,stroke:'#396a7c','stroke-width':1,opacity:.32}));g.append(grid);
+}
+function drawPolys(g,pp,mode){for(const p of pp){
+ let fill=mode==='lower'?'#29435a':mode==='ghost'?'#504477':materials[p.material]||materials.stone;
+ let st=mode==='lower'?'#54728b':mode==='ghost'?'#a998ec':'#38dce7';
+ const poly=el('polygon',{points:pts(p.poly),fill,stroke:st,'stroke-width':mode==='ghost'?1.6:1.8,'stroke-dasharray':mode==='ghost'?'5 5':mode==='lower'?'3 5':'none',opacity:mode==='lower'?.28:mode==='ghost'?.3:1,'stroke-linejoin':'round','pointer-events':'none',class:'mapnode', 'data-shape':p.shape,'data-piece-id':p.id||''});g.append(poly);
+ if(mode==='real'){
+  const c=polygonCenter(p.poly);
+  g.append(el('text',{x:c.x,y:c.y+4,'text-anchor':'middle','font-size':13,'font-weight':750,fill:'#ebffff','pointer-events':'none'},String(p.stability)+'%'));
+  if(selected?.collection==='piece'&&selected.id===p.id){g.append(el('polygon',{points:pts(p.poly),fill:'none',stroke:'#ffd992','stroke-width':3.5,'stroke-linejoin':'round','pointer-events':'none'}))}
+ }
+}}
+function buildPredictions(){
+ const out=[],count=[2,5,9][candidate],zPieces=pieces.filter(p=>p.floor===floor);
+ let working=zPieces.map(p=>clone(p));
+ for(let j=0;j<count;j++){
+  const all=[];
+  for(const p of working)for(let i=0;i<p.poly.length;i++){
+   const shape=(candidate===0?'triangle':candidate===1?(j%3?'triangle':'square'):(j%2?'square':'triangle'));
+   const poly=attached(p.poly,i,shape);
+   if(working.some(w=>intersects(poly,w.poly)))continue;
+   if(!all.some(e=>e.poly.map(quant).sort().join('|')===poly.map(quant).sort().join('|')))all.push({poly,shape});
+  }
+  if(!all.length)break;
+  all.sort((a,b)=>dist(polygonCenter(a.poly),vec(0,0))-dist(polygonCenter(b.poly),vec(0,0)));
+  const chosen=all[(j*3+candidate)%Math.min(all.length,Math.max(1,Math.floor(all.length*.6)))];
+  working.push({...chosen,id:'H-'+j});out.push({...chosen,id:'H-'+j});
+ }
+ return out;
+}
+function drawWalls(g){for(const w of walls.filter(w=>w.floor===floor)){
+ const color=w.kind==='doorway'?'#ffbd78':'#a9e4fb',a=w.a,b=w.b,c=mid(a,b);
+ g.append(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#06111e','stroke-width':10,'stroke-linecap':'round','pointer-events':'none'}));
+ if(w.kind==='doorway'){
+  const v=sub(b,a),s=.26;g.append(el('line',{x1:a.x,y1:a.y,x2:a.x+v.x*s,y2:a.y+v.y*s,stroke:color,'stroke-width':6,'stroke-linecap':'round','pointer-events':'none'}));
+  g.append(el('line',{x1:b.x,y1:b.y,x2:b.x-v.x*s,y2:b.y-v.y*s,stroke:color,'stroke-width':6,'stroke-linecap':'round','pointer-events':'none'}));
+  g.append(el('circle',{cx:c.x,cy:c.y,r:5,fill:color,'pointer-events':'none'}));
+ }else{g.append(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:color,'stroke-width':6,'stroke-linecap':'round','pointer-events':'none'}))}
+ if(selected?.collection==='wall'&&selected.id===w.id){g.append(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:'#ffeaac','stroke-width':2,'stroke-dasharray':'4 3','pointer-events':'none'}))}
+ }}
+function drawHover(g){
+ if(tool==='square'||tool==='triangle'){
+  // Ghost sockets make attachment locations discoverable without guessing an empty raster cell.
+  if(pieces.filter(p=>p.floor===floor).length<=26){
+   const slots=allSlots(tool);for(const slot of slots.filter(x=>x.valid)){
+    g.append(el('polygon',{points:pts(slot.poly),fill:'#40c7ca', 'fill-opacity':.055,stroke:'#4796a1','stroke-width':1,'stroke-dasharray':'3 7','pointer-events':'none'}));
+   }
+  }
+  if(hover?.poly){g.append(el('polygon',{points:pts(hover.poly),fill:hover.valid?'#37d6df':'#ec676c','fill-opacity':.36,stroke:hover.valid?'#67faff':'#ff868b','stroke-width':3,'stroke-linejoin':'round','pointer-events':'none'}));const c=polygonCenter(hover.poly);g.append(el('text',{x:c.x,y:c.y+4,'text-anchor':'middle','font-size':11,'font-weight':800,fill:'#fff','pointer-events':'none'},hover.valid?'✓':'×'))}
+ }else if((tool==='wall'||tool==='doorway'||tool==='erase'||tool==='inspect')&&hover?.edge){
+  const {a,b}=hover.edge;g.append(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:tool==='doorway'?'#ffbd78':'#63f5ee','stroke-width':4,'stroke-linecap':'round','stroke-dasharray':'5 5','pointer-events':'none'}));
+ }
+}
+function drawRoute(g){const cur=pieces.filter(p=>p.floor===floor);if(!cur.length)return;
+ const midPt=polygonCenter(cur[0].poly),end=add(midPt,vec(-190,175)),k=add(midPt,vec(-65,60));
+ g.append(el('polyline',{points:`${end.x},${end.y} ${k.x},${k.y} ${midPt.x},${midPt.y}`,fill:'none',stroke:'#ffc07a','stroke-width':3,'stroke-dasharray':'7 8','stroke-linecap':'round','pointer-events':'none'}));
+ g.append(el('circle',{cx:midPt.x,cy:midPt.y,r:16,fill:'#563321',stroke:'#fbc280','stroke-width':2,'pointer-events':'none'}));
+ g.append(el('text',{x:midPt.x,y:midPt.y+4,'text-anchor':'middle','font-size':10,'font-weight':700,fill:'#ffe6c7','pointer-events':'none'},'TC?'));
+}
+function draw(){clear(svg);const g=el('g',{id:'world',transform:`translate(${camera.x},${camera.y}) scale(${camera.zoom})`});svg.append(g);drawGrid(g);
+ const current=pieces.filter(p=>p.floor===floor);
+ if(floor>0)drawPolys(g,pieces.filter(p=>p.floor===floor-1),'lower');
+ if(overlay==='predicted'||overlay==='combined'||overlay==='raid')drawPolys(g,buildPredictions(),'ghost');
+ if(overlay!=='predicted')drawPolys(g,current,'real');else drawPolys(g,current.map(p=>({...p,material:'stone'})),'lower');
+ if(overlay!=='predicted')drawWalls(g);
+ if(overlay==='raid')drawRoute(g);
+ drawHover(g);
+}
+function updateInspector(){const s=selectedObject();$('selectedId').textContent=s?.id||'–';for(const id of ['material','stability','partType','savepiece'])$(id).disabled=!s;
+ if(s){$('material').value=s.material;$('stability').value=s.stability;$('stabValue').textContent=s.stability+'%';$('partType').value=s.kind||s.type||'unknown'}else{$('stabValue').textContent='–';$('partType').value='unknown'}
+ $('count').textContent=pieces.length+' / '+walls.length;$('floorStat').textContent=(floor?floor+'. OG':'EG')+' / 3';$('floorInfo').textContent=`${floor?'Etage '+floor:'Erdgeschoss'} · ${pieces.filter(p=>p.floor===floor).length} Flächen · ${walls.filter(w=>w.floor===floor).length} Wände/Rahmen`;
+ renderCandidates();
+}
+function weights(){const n=pieces.length,tri=pieces.filter(p=>p.shape==='triangle').length;const raw=[(6+Math.min(n,7))*Math.max(.45,1-tri*.1),(3+tri*1.8),(2+n*.32+tri*.6)],sum=raw.reduce((a,b)=>a+b,0);return raw.map(x=>Math.round(x/sum*100))}
+function renderCandidates(){const w=weights();$('matches').textContent=templates.length;const target=$('candidates');target.innerHTML='';templates.forEach((p,i)=>{
+ const n=document.createElement('button');n.type='button';n.className='candidate'+(candidate===i?' active':'');n.style.width='100%';n.style.color='inherit';n.style.textAlign='left';n.innerHTML=`<div class="head"><span><b>${p.name}</b><br><span style="font-size:10px;color:#8b9fb7">${p.tag}</span></span><b style="color:#9be8f2">${w[i]}%</b></div><div class="bar"><span style="width:${w[i]}%"></span></div>`;
+ n.onclick=()=>{candidate=i;redraw()};target.append(n)
+ });const costs=templates.map(x=>x.cost),denom=w.reduce((a,b)=>a+b,0)||1;
+ const expected=Math.round(costs.reduce((a,c,i)=>a+c*w[i]/denom,0)/100)*100;
+ const value=objective==='worst'?Math.max(...costs)+1800:objective==='risk'?7500:expected;
+ $('costStat').textContent=(value/1000).toFixed(1)+'k S';$('sulfur').textContent=value.toLocaleString('de-DE')+' (Demo)';$('worst').textContent=(Math.max(...costs)+1800).toLocaleString('de-DE')+' S';$('strategy').textContent=objective==='worst'?'Worst Case':objective==='risk'?'Low Risk':'Expected Cost';$('route').textContent=['Süd → Core','West → Bunker','Ost → Honeycomb'][candidate];
+}
+function redraw(){updateInspector();draw()}
+function setActiveTool(){document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));$('editorStatus').textContent=({inspect:'Bauteil oder Kante auswählen',square:'Quadrat: grüne Anbauposition anklicken',triangle:'Dreieck: grüne Anbauposition anklicken',wall:'Wand: vorhandene Kante anklicken',doorway:'Türrahmen: vorhandene Kante anklicken',erase:'Entfernen: Bauteil oder Rahmen anklicken'})[tool]}
+function setActiveFloor(){document.querySelectorAll('[data-floor]').forEach(b=>b.classList.toggle('active',+b.dataset.floor===floor))}
+function setActiveOverlay(){document.querySelectorAll('[data-overlay]').forEach(b=>b.classList.toggle('active',b.dataset.overlay===overlay))}
+function cleanOrphanWalls(){walls=walls.filter(w=>pieces.some(p=>p.floor===w.floor&&p.poly.some((v,i)=>{const [a,b]=sideOf(p.poly,i);return isSameEdge(w.a,w.b,a,b)})))}
+function act(pos){
+ if(tool==='square'||tool==='triangle'){
+  const c=findPlacement(pos);if(!c){$('editorStatus').textContent='Keine passende freie Kante. Über eine Anbauposition fahren.';return}
+  if(!c.valid){$('editorStatus').textContent='Platzierung blockiert: Bauteile würden sich überschneiden.';return}
+  snapshot();const p=createPiece(c.poly,tool,floor);pieces.push(p);selected={collection:'piece',id:p.id};hover=null;redraw();return;
+ }
+ if(tool==='wall'||tool==='doorway'){
+  const e=findEdge(pos);if(!e){$('editorStatus').textContent='Bitte eine vorhandene Bauteilkante anklicken.';return}
+  snapshot();let w=wallOnEdge(e.a,e.b,floor);
+  if(w){w.kind=tool}else{w=createWall(e.a,e.b,floor,tool);walls.push(w)}
+  selected={collection:'wall',id:w.id};redraw();return;
+ }
+ const e=findEdge(pos),w=e&&wallOnEdge(e.a,e.b,floor),p=findPiece(pos);
+ if(tool==='erase'){
+  if(w){snapshot();walls=walls.filter(v=>v.id!==w.id);selected=null;redraw();return}
+  if(p){snapshot();pieces=pieces.filter(v=>v.id!==p.id);cleanOrphanWalls();selected=null;redraw();return}
+ }else{
+  if(w&&e.d<10/camera.zoom)selected={collection:'wall',id:w.id};
+  else selected=p?{collection:'piece',id:p.id}:null;
+  redraw();return;
+ }
+}
+function updateHover(pos){if(tool==='square'||tool==='triangle'){hover=findPlacement(pos)}else{hover={edge:findEdge(pos)}};draw()}
+// Mouse, trackpad, and touch; SVG geometric hit testing is independent of display size.
+svg.addEventListener('pointermove',e=>{
+ if(pointerDown?.panning){camera.x=pointerDown.camX+(e.clientX-pointerDown.x)*(800/svg.getBoundingClientRect().width);camera.y=pointerDown.camY+(e.clientY-pointerDown.y)*(520/svg.getBoundingClientRect().height);draw();return}
+ updateHover(worldFromEvent(e));
+});
+svg.addEventListener('pointerleave',()=>{hover=null;draw()});
+svg.addEventListener('pointerdown',e=>{
+ if(e.button===1||e.button===2||e.shiftKey||e.altKey){pointerDown={panning:true,x:e.clientX,y:e.clientY,camX:camera.x,camY:camera.y};svg.setPointerCapture(e.pointerId);e.preventDefault()}
+});
+svg.addEventListener('pointerup',e=>{if(pointerDown?.panning){pointerDown=null;e.preventDefault()}});
+svg.addEventListener('contextmenu',e=>e.preventDefault());
+svg.addEventListener('click',e=>{if(pointerDown)return;if(e.button!==0)return;act(worldFromEvent(e))});
+svg.addEventListener('wheel',e=>{e.preventDefault();const before=worldFromEvent(e),factor=e.deltaY<0?1.12:1/1.12;camera.zoom=Math.max(.4,Math.min(2.9,camera.zoom*factor));const canvas=svg.createSVGPoint();canvas.x=e.clientX;canvas.y=e.clientY;const vp=canvas.matrixTransform(svg.getScreenCTM().inverse());camera.x=vp.x-before.x*camera.zoom;camera.y=vp.y-before.y*camera.zoom;updateHover(worldFromEvent(e))},{passive:false});
+// Tool controls
+for(const b of document.querySelectorAll('[data-tool]'))b.onclick=()=>{tool=b.dataset.tool;hover=null;setActiveTool();draw()};
+for(const b of document.querySelectorAll('[data-floor]'))b.onclick=()=>{floor=+b.dataset.floor;selected=null;hover=null;setActiveFloor();redraw()};
+for(const b of document.querySelectorAll('[data-overlay]'))b.onclick=()=>{overlay=b.dataset.overlay;hover=null;setActiveOverlay();draw()};
+for(const b of document.querySelectorAll('[data-page]'))b.onclick=()=>{
+ document.querySelectorAll('[data-page]').forEach(n=>n.classList.toggle('active',b===n));
+ const pages={studio:['Blueprint Reconstruction','Kanten-Snap · echte Winkel · gemeinsam genutzte Bauteilkanten'],match:['Stability Intelligence','Kandidatenbewertung bislang ausschließlich Demo'],raid:['Raid Pathfinding','Noch keine echten Raid-Daten oder Routenberechnung'],library:['Blueprint Library','Lizenzgeprüfte, geometrische Grundrisse: in Planung']};
+ $('pageTitle').textContent=pages[b.dataset.page][0];$('pageSub').textContent=pages[b.dataset.page][1];overlay=b.dataset.page==='raid'?'raid':'combined';setActiveOverlay();draw();
+};
+$('stability').oninput=e=>{$('stabValue').textContent=e.target.value+'%'};
+$('savepiece').onclick=()=>{const s=selectedObject();if(!s)return;snapshot();s.material=$('material').value;s.stability=+$('stability').value;if('kind' in s&&['wall','doorway'].includes($('partType').value))s.kind=$('partType').value;else if('type' in s&&['foundation','floor','unknown'].includes($('partType').value))s.type=$('partType').value;redraw()};
+$('objective').onchange=e=>{objective=e.target.value;redraw()};
+$('reset').onclick=sample;
+$('clearPlan').onclick=()=>{snapshot();pieces=[];walls=[];selected=null;hover=null;tool='square';camera.x=400;camera.y=265;camera.zoom=1;setActiveTool();redraw()};
+$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;
+$('zoomIn').onclick=()=>{camera.zoom=Math.min(2.9,camera.zoom*1.22);draw()};
+$('zoomOut').onclick=()=>{camera.zoom=Math.max(.4,camera.zoom/1.22);draw()};
+$('zoomFit').onclick=()=>{
+ const current=pieces.filter(p=>p.floor===floor),all=current.flatMap(p=>p.poly);
+ if(!all.length){camera.x=400;camera.y=265;camera.zoom=1;draw();return}
+ const minx=Math.min(...all.map(p=>p.x)),maxx=Math.max(...all.map(p=>p.x)),miny=Math.min(...all.map(p=>p.y)),maxy=Math.max(...all.map(p=>p.y));
+ camera.zoom=Math.min(2.1,Math.max(.4,Math.min(650/(maxx-minx+SIDE*2),400/(maxy-miny+SIDE*2))));
+ camera.x=400-(minx+maxx)/2*camera.zoom;camera.y=260-(miny+maxy)/2*camera.zoom;draw();
+};
+$('analyse').onclick=()=>{$('editorStatus').textContent='Geometrie aktualisiert. Stability-Matching ist weiterhin eine Demo.';redraw()};
+$('export').onclick=()=>{
+ const data={kind:'ghostframe_blueprint',schema:'0.2',geometry:'metric edge snapping; side length 3m represented by 78 SVG units',matching:'demonstration only',pieces,walls};
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='ghostframe-blueprint-v02.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+};
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{
+  const data=JSON.parse(await f.text());if(!Array.isArray(data.pieces)||!Array.isArray(data.walls))throw new Error('Ungültiges Blueprint-Schema');
+  if(data.pieces.some(p=>!Array.isArray(p.poly)||p.poly.length<3||p.poly.length>4||!p.poly.every(v=>Number.isFinite(v.x)&&Number.isFinite(v.y))||!['square','triangle'].includes(p.shape)||![0,1,2].includes(p.floor)))throw new Error('Ungültige Polygon-Daten');
+  if(data.walls.some(w=>![0,1,2].includes(w.floor)||!['wall','doorway'].includes(w.kind)||![w.a,w.b].every(p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y))))throw new Error('Ungültige Kanten-Daten');
+  snapshot();pieces=clone(data.pieces);walls=clone(data.walls);nextId=Math.max(1,...[...pieces,...walls].map(p=>Number(p.id?.replace(/\D/g,''))||0))+1;selected=null;hover=null;redraw();$('editorStatus').textContent=`${pieces.length} Flächen und ${walls.length} Wände/Rahmen importiert`;
+ }catch(err){$('editorStatus').textContent='Import fehlgeschlagen: '+err.message}finally{e.target.value=''}};
+document.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return}
+ const k=e.key.toLowerCase();if(k==='escape'){tool='inspect';setActiveTool();hover=null;draw()}
+ if(k==='1'||k==='2'||k==='3'||k==='4'||k==='5'||k==='6'){tool=['inspect','square','triangle','wall','doorway','erase'][+k-1];setActiveTool();hover=null;draw()}
+ if(k==='delete'||k==='backspace'){
+  const s=selectedObject();if(!s)return;snapshot();if(selected.collection==='piece'){pieces=pieces.filter(p=>p.id!==s.id);cleanOrphanWalls()}else walls=walls.filter(w=>w.id!==s.id);selected=null;redraw();
+ }
+});
+sample();
+
+</script></body></html>
