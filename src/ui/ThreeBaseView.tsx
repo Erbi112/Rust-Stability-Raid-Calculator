@@ -3,8 +3,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { BlueprintDocument, BuildingEdge, BuildingTile, MaterialGrade } from '../core/blueprint.ts';
 import { edgeAt, sameEdge, type Point } from '../core/geometry.ts';
-import {planToWorld,PLAN_UNIT_METERS,WALL_HEIGHT_METERS} from '../core/projection.ts';
+import { PLAN_UNIT_METERS, WALL_HEIGHT_METERS, planToWorld } from '../core/projection.ts';
 import { tileHeight, misplacedUpperTiles } from '../core/levels.ts';
+import { structuralConnectivity, type StructuralStatus } from '../core/stability.ts';
+import { useMemo } from 'react';
 import { useEditor } from '../store/useEditor.ts';
 
 const UNIT=PLAN_UNIT_METERS;
@@ -22,7 +24,9 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
  const elevations=[...new Set(doc.tiles.map(t=>t.floor))].sort((a,b)=>a-b).map(level=>({
   level,heights:[...new Set(doc.tiles.filter(t=>t.floor===level).map(t=>tileHeight(t)))].sort((a,b)=>a-b)
  }));
- const [hull,setHull]=useState(false),[failure,setFailure]=useState<string|null>(null),[top,setTop]=useState(false);
+ const [hull,setHull]=useState(false),[failure,setFailure]=useState<string|null>(null),[top,setTop]=useState(false),[showSupport,setShowSupport]=useState(false);
+ const structure=useMemo(()=>showSupport?structuralConnectivity(doc):null,[doc,showSupport]);
+ const structureTint=(id:string):number|undefined=>{const status:StructuralStatus|undefined=structure?.nodes[id]?.status;return status==='anchor'?0xc7a35e:status==='linked'?0x4ca67e:status==='unverified'?0xd95f52:undefined};
  useEffect(()=>{
   const container=mount.current;if(!container)return;
   let renderer:THREE.WebGLRenderer;
@@ -33,9 +37,9 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=1.25;
+  renderer.toneMappingExposure=1.10;
   container.appendChild(renderer.domElement);
-  const scene=new THREE.Scene();scene.fog=new THREE.Fog(0x121919,35,100);
+  const scene=new THREE.Scene();scene.fog=new THREE.Fog(0x10161a,45,125);
   const camera=new THREE.PerspectiveCamera(42,Math.max(1,container.clientWidth)/Math.max(1,container.clientHeight),0.1,300);
   const center=new THREE.Vector3(0,1,0);
   const allPoints=doc.tiles.flatMap(t=>t.polygon);
@@ -45,8 +49,8 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
   const ys=doc.tiles.map(t=>tileHeight(t)*WALL_HEIGHT);
   const minY=ys.length?Math.min(...ys):0,maxY=ys.length?Math.max(...ys)+WALL_HEIGHT:WALL_HEIGHT;
   center.set((minX+maxX)/2,(minY+maxY)/2,(minZ+maxZ)/2);
-  const radius=Math.max(7,Math.hypot(maxX-minX,maxZ-minZ,maxY-minY)*1.12);
-  camera.position.set(center.x+radius*.9,center.y+radius*.82,center.z+radius*1.10);
+  const radius=Math.max(7,(Math.hypot(maxX-minX,maxZ-minZ,maxY-minY))*1.12);
+  camera.position.set(center.x+radius*.85,center.y+radius*.95,center.z+radius*1.10);
   camera.lookAt(center);
   const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.075;
   controls.target.copy(center);controls.maxPolarAngle=Math.PI*.49;controls.minDistance=3;controls.maxDistance=160;
@@ -57,21 +61,65 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
   sun.shadow.camera.left=-28;sun.shadow.camera.right=28;sun.shadow.camera.top=28;sun.shadow.camera.bottom=-28;
   scene.add(sun);
   const fill=new THREE.DirectionalLight(0xa9c1ce,1.4);fill.position.set(11,9,-15);scene.add(fill);
-  const minGroundY=Math.min(0,...doc.tiles.map(t=>tileHeight(t)*WALL_HEIGHT));
-  const grid=new THREE.GridHelper(80,80,0x4b554f,0x333c3b);grid.position.y=Math.min(-.46,minGroundY-.46);scene.add(grid);
+  const grid=new THREE.GridHelper(80,80,0x4b554f,0x333c3b);grid.position.y=Math.min(-.46,minY-.46);scene.add(grid);
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(90,90),new THREE.MeshStandardMaterial({color:0x232a26,roughness:1}));
-  ground.rotation.x=-Math.PI/2;ground.position.y=Math.min(-.5,minGroundY-.5);ground.receiveShadow=true;scene.add(ground);
+  ground.rotation.x=-Math.PI/2;ground.position.y=Math.min(-.5,minY-.5);ground.receiveShadow=true;scene.add(ground);
   const group=new THREE.Group();scene.add(group);
+  // Hand-built procedural construction surfaces. No extracted game textures.
+  const textures=new Map<MaterialGrade,THREE.CanvasTexture>();
+  const textureFor=(grade:MaterialGrade)=>{
+    const cached=textures.get(grade);if(cached)return cached;
+    const canvas=document.createElement('canvas');canvas.width=256;canvas.height=256;
+    const ctx=canvas.getContext('2d');
+    if(!ctx)throw new Error('Canvas 2D unavailable for material texture');
+    const base:Record<MaterialGrade,string>={twig:'#8f7857',wood:'#846b4f',stone:'#aba79c',metal:'#84929a',armored:'#646d75',unknown:'#8f8276'};
+    ctx.fillStyle=base[grade];ctx.fillRect(0,0,256,256);
+    const seed=[...grade].reduce((a,c)=>((a*31+c.charCodeAt(0))>>>0),1);
+    let rand=seed;
+    const random=()=>{rand=(Math.imul(rand,1664525)+1013904223)>>>0;return rand/4294967296;};
+    if(grade==='stone'||grade==='unknown'){
+      for(let r=0;r<5;r++){
+        const y=r*52;const split=r%2?64:0;
+        ctx.strokeStyle='#4c514f';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(256,y);ctx.stroke();
+        for(let x=split-128;x<320;x+=128){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+52);ctx.stroke();}
+      }
+    }else if(grade==='wood'||grade==='twig'){
+      ctx.strokeStyle='#443c32';ctx.lineWidth=4;
+      for(let x=0;x<=256;x+=44){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,256);ctx.stroke();}
+      ctx.strokeStyle='#d1a775';ctx.lineWidth=1;
+      for(let x=0;x<256;x+=11){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+6,256);ctx.stroke();}
+    }else{
+      ctx.strokeStyle='#3b474f';ctx.lineWidth=4;
+      for(let x=0;x<=256;x+=128){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,256);ctx.stroke();}
+      for(let y=0;y<=256;y+=128){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(256,y);ctx.stroke();}
+      ctx.fillStyle='#c3c4bd';for(let y=12;y<256;y+=128)for(let x=12;x<256;x+=128){ctx.fillRect(x,y,5,5);ctx.fillRect(x+104,y+104,5,5);}
+    }
+    for(let i=0;i<2100;i++){
+      const x=random()*256,y=random()*256;
+      ctx.fillStyle=random()>.55?'#ffffff':'#0e1618';ctx.globalAlpha=random()*.14;
+      ctx.fillRect(x,y,random()*3+1,random()*3+1);
+    }
+    ctx.globalAlpha=1;
+    const texture=new THREE.CanvasTexture(canvas);
+    texture.colorSpace=THREE.SRGBColorSpace;
+    texture.wrapS=THREE.RepeatWrapping;texture.wrapT=THREE.RepeatWrapping;
+    texture.anisotropy=Math.min(renderer.capabilities.getMaxAnisotropy(),8);
+    textures.set(grade,texture);return texture;
+  };
   const meshMaterial=(grade:MaterialGrade,transparent=false)=>new THREE.MeshStandardMaterial({
-    color:COLORS[grade],roughness:grade==='metal'||grade==='armored'?.57:.93,metalness:grade==='metal'||grade==='armored'?.32:0,
-    transparent,opacity:transparent?.18:1,side:THREE.DoubleSide
+    color:0xffffff,map:textureFor(grade),roughness:grade==='metal'||grade==='armored'?.59:.94,
+    metalness:grade==='metal'||grade==='armored'?.25:0,transparent,opacity:transparent?.20:1,
+    side:THREE.DoubleSide
   });
   const visible=(f:number)=>mode==='all'||f===floor;
   const offset=(f:number)=>exploded?f*1.25:0;
   const tileY=(t:BuildingTile)=>(tileHeight(t)*WALL_HEIGHT)+offset(t.floor);
   const addBox=(parent:THREE.Group,length:number,height:number,depth:number,color:number,
     x:number,y:number,z:number,rotate=0,opacity=1)=>{
-    const mat=new THREE.MeshStandardMaterial({color,roughness:.83,metalness:.09,transparent:opacity<1,opacity});
+    const grade=(Object.entries(COLORS).find(([,v])=>v===color)?.[0]??null) as MaterialGrade|null;
+    const mat=new THREE.MeshStandardMaterial({color:grade?0xffffff:color,
+      ...(grade?{map:textureFor(grade)}:{}),roughness:grade==='metal'||grade==='armored'?.58:.87,
+      metalness:grade==='metal'||grade==='armored'?.2:0,transparent:opacity<1,opacity});
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(length,height,depth),mat);
     mesh.position.set(x,y,z);mesh.rotation.y=rotate;mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;
   };
@@ -80,7 +128,7 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
     tile.polygon.forEach((p,i)=>{const pt=worldXY(p);if(i===0)shape.moveTo(pt.x,pt.z);else shape.lineTo(pt.x,pt.z);});shape.closePath();
     const thickness=tile.kind==='foundation'?.40:.17;
     const geometry=new THREE.ExtrudeGeometry(shape,{depth:thickness,bevelEnabled:true,bevelSegments:1,steps:1,bevelSize:.025,bevelThickness:.015});
-    geometry.rotateX(Math.PI/2); // +planY maps to +worldZ
+    geometry.rotateX(Math.PI/2); // XY -> XZ with +planY = +worldZ, matching the walls
     if(tile.kind==='floor-frame'){
       // Real open socket: perimeter beams, never a semi-transparent solid floor.
       for(let i=0;i<tile.polygon.length;i++){
@@ -109,7 +157,6 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
       floorMesh.position.y=tileY(tile); // upper face at matching building height
       floorMesh.castShadow=true;floorMesh.receiveShadow=true;group.add(floorMesh);
     }
-
     // Fine metallic perimeter to make the precise polygons legible at any camera angle.
     const pts=tile.polygon.map(p=>{const q=worldXY(p);return new THREE.Vector3(q.x,tileY(tile)+.018,q.z);});pts.push(pts[0]!.clone());
     group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xdbc6aa,transparent:true,opacity:.67})));
@@ -128,7 +175,7 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
     const dx=b.x-a.x,dz=b.z-a.z,angle=-Math.atan2(dz,dx),span=Math.hypot(dx,dz);
     const centerX=(a.x+b.x)/2,centerZ=(a.z+b.z)/2;
     const item=new THREE.Group();item.position.set(centerX,base,centerZ);item.rotation.y=angle;group.add(item);
-    const color=COLORS[edge.grade];
+    const color=structureTint(edge.id)??COLORS[edge.grade];
     const bar=(w:number,h:number,depth:number,x:number,y:number)=>addBox(item,w,h,depth,color,x,y,0);
     const height=edge.kind==='half-wall'?1.5:edge.kind==='low-wall'?.72:WALL_HEIGHT;
     if(edge.kind==='wall'||edge.kind==='half-wall'||edge.kind==='low-wall')bar(span,height,.19,0,height/2);
@@ -138,9 +185,9 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
       bar(side,height,.19,-span/2+side/2,height/2);bar(side,height,.19,span/2-side/2,height/2);
       bar(gap,.4,.19,0,height-.2);
       if(edge.insert==='garage-door'){
-        addBox(item,gap-.035,height-.44,.10,0x626b72,0,(height-.44)/2,0);
+        addBox(item,gap-.035,height-.44,.10,0x626b72,0,(height-.44)/2);
         // Visible horizontal rolled-metal segments, distinct from single and double doors.
-        for(let n=1;n<12;n++)addBox(item,gap-.07,.024,.133,n%2?0x9ca1a0:0x3a454b,0,n*(height-.44)/12,0);
+        for(let n=1;n<12;n++)addBox(item,gap-.07,.024,.133,n%2?0x9ca1a0:0x3a454b,0,n*(height-.44)/12);
       }else if(edge.insert&&edge.insert!=='none'){
         addBox(item,gap-.035,height-.42,.085,COLORS[edge.grade]===COLORS.stone?0x976a43:0xa5744a,0,(height-.42)/2,0,0,.97);
       }
@@ -174,9 +221,10 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
     resize.disconnect();renderer.setAnimationLoop(null);controls.dispose();
     scene.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>m.dispose());}
       if(o instanceof THREE.Line){o.geometry.dispose();const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>m.dispose());}});
+    textures.forEach(texture=>texture.dispose());
     renderer.dispose();renderer.domElement.remove();
   };
- },[doc,floor,mode,exploded,hull,top]);
+ },[doc,floor,mode,exploded,hull,top,showSupport]);
  return <div className="three-wrap">
    <div className="three-scene" ref={mount} aria-label="Interaktive räumliche 3D-Projektion des aktuellen Blueprints"/>
    {failure&&<div className="three-failure">{failure}</div>}
@@ -194,7 +242,9 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
     <button className={exploded?'active':''} onClick={()=>setExploded(x=>!x)}>Explodiert</button>
     <button className={top?'active':''} onClick={()=>setTop(x=>!x)}>Vogelperspektive</button>
     <button className={hull?'active':''} onClick={()=>setHull(x=>!x)}>Hülle*</button>
+    <button className={showSupport?'active':''} onClick={()=>setShowSupport(x=>!x)}>Strukturpfade</button>
    </div>
+   {showSupport&&<div className="three-structural-legend">Gold: Fundament-Anker · Grün: modelliert verbunden · Rot: Verbindung ungeklärt · keine Rust-%-Prognose</div>}
    <div className="three-foot">Maus ziehen: drehen · Rad: zoomen · *Hülle ist eine unbestätigte Visualisierung · Dächer und Treppen schematisch</div>
   </div>;
 }

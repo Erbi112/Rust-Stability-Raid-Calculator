@@ -16,10 +16,11 @@ import { findEdgeAt, findEdgeRecord, findTileAt, nearSlot, slotsFor, stats, tile
 import { exportProject, importProject, loadProject, saveProject } from '../services/persistence.ts';
 import { CATALOG, CATALOG_GROUPS, getCatalogPiece, type CatalogPiece } from '../core/catalog.ts';
 import { StructureIcon } from './StructureIcon.tsx';
+import { fitCameraToTiles } from '../core/viewport.ts';
 import { ThreeBaseView } from './ThreeBaseView.tsx';
 import { misplacedUpperTiles, proposedElevation } from '../core/levels.ts';
-import { fitCameraToTiles } from '../core/viewport.ts';
 import { AnalysisPanel, type AnalysisTab } from './AnalysisPanel.tsx';
+import { structuralConnectivity } from '../core/stability.ts';
 
 const MATERIALS:MaterialGrade[]=['twig','wood','stone','metal','armored','unknown'];
 const EDGES:EdgeKind[]=['wall','doorway','window','wall-frame','half-wall','low-wall'];
@@ -121,30 +122,35 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
  const wrapper=useRef<HTMLDivElement>(null),stage=useRef<Konva.Stage>(null),pan=useRef(false),start=useRef<Point|null>(null),skip=useRef(false);
  const [size,setSize]=useState({w:950,h:660}),[camera,setCamera]=useState({x:475,y:330,scale:1});
  const [pointer,setPointer]=useState<Point|null>(null),[menu,setMenu]=useState<ContextMenu|null>(null);
- const [grid,setGrid]=useState(true),[below,setBelow]=useState(true),[rootHeight,setRootHeight]=useState(0);
+ const [grid,setGrid]=useState(true),[below,setBelow]=useState(true),[showSupport,setShowSupport]=useState(false),[rootHeight,setRootHeight]=useState(0);
+ const topology=useMemo(()=>showSupport?structuralConnectivity(doc):null,[doc,showSupport]);
  useEffect(()=>{setRootHeight(0);},[floor]);
- const lastSize=useRef({w:950,h:660}),measured=useRef(false);
+ const previousSize=useRef({w:950,h:660});
+ const cameraReady=useRef(false);
  const tiles=useMemo(()=>tilesOnFloor(doc,floor),[doc,floor]);
- const fitView=useCallback((w=size.w,h=size.h)=>
-   setCamera(fitCameraToTiles(tiles.length?tiles:doc.tiles,w,h)),[tiles,doc.tiles,size.w,size.h]);
+ const fitView=useCallback((w=size.w,h=size.h)=>setCamera(fitCameraToTiles(tiles.length?tiles:doc.tiles,w,h)),[tiles,doc.tiles,size.w,size.h]);
+ // Resize never accumulates incorrect coordinates; retain the current WORLD center.
  useEffect(()=>{
   const node=wrapper.current;if(!node)return;
   const observer=new ResizeObserver(([entry])=>{
-    if(!entry)return;
-    const w=Math.max(300,entry.contentRect.width),h=Math.max(300,entry.contentRect.height);
-    const prior=lastSize.current;lastSize.current={w,h};setSize({w,h});
-    if(!measured.current){
-      measured.current=true;
-      const state=useEditor.getState(),floorTiles=tilesOnFloor(state.doc,state.floor);
-      setCamera(fitCameraToTiles(floorTiles.length?floorTiles:state.doc.tiles,w,h));
-    }else setCamera(c=>({...c,x:c.x+(w-prior.w)/2,y:c.y+(h-prior.h)/2}));
-  });observer.observe(node);return()=>observer.disconnect();
+   if(!entry)return;
+   const w=Math.max(300,entry.contentRect.width),h=Math.max(300,entry.contentRect.height);
+   const prev=previousSize.current;
+   if(Math.abs(w-prev.w)<.5&&Math.abs(h-prev.h)<.5)return;
+   previousSize.current={w,h};
+   setSize({w,h});
+   setCamera(c=>({ ...c,x:c.x+(w-prev.w)/2,y:c.y+(h-prev.h)/2 }));
+  });observer.observe(node);return ()=>observer.disconnect();
  },[]);
+ // When a 2D view mounts again after 3D/Split, fit the actual building bounds.
+ // Do NOT reset the camera when a tile is added while the user is drawing.
  useEffect(()=>{
-   if(!measured.current)return;
-   const state=useEditor.getState(),floorTiles=tilesOnFloor(state.doc,state.floor);
-   setCamera(fitCameraToTiles(floorTiles.length?floorTiles:state.doc.tiles,lastSize.current.w,lastSize.current.h));
- },[doc.id,floor]);
+  if(!cameraReady.current&&size.w>300&&size.h>300&&doc.tiles.length){
+    cameraReady.current=true;
+    fitView();
+  }
+ },[doc.tiles.length,size.w,size.h,fitView]);
+ useEffect(()=>{cameraReady.current=false;fitView();cameraReady.current=true;},[doc.id,floor]);
  const slots=useMemo(()=>tool==='square'||tool==='triangle'?slotsFor(doc,floor,tool):[],[doc,floor,tool]);
  const slot=useMemo(()=>pointer?nearSlot(slots,pointer):null,[slots,pointer]);
  const world=useCallback(()=>{const q=stage.current?.getPointerPosition();return q?{x:(q.x-camera.x)/camera.scale,y:(q.y-camera.y)/camera.scale}:null;},[camera]);
@@ -198,7 +204,8 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
  return <div className="canvas-wrapper" ref={wrapper}>
   <div className="canvas-top-left"><span className="live-dot"/><strong>BAUPLAN · DRAUFSICHT</strong><span className="canvas-separator"/> Geschoss {floor}<span className="canvas-separator"/>{tiles.length} Bauteile</div>
   <div className="canvas-top-right"><button title="Raster" onClick={()=>setGrid(!grid)} className={grid?'active':''}><Grid3X3 size={16}/></button>
-   <button title="Unterliegende Ebene" onClick={()=>setBelow(!below)} className={below?'active':''}><Layers3 size={16}/></button></div>
+   <button title="Unterliegende Ebene" onClick={()=>setBelow(!below)} className={below?'active':''}><Layers3 size={16}/></button>
+   <button title="Ankerpfade aus Strukturmodell anzeigen (nicht Rust-Stabilität)" aria-label="Strukturpfade ein-/ausblenden" onClick={()=>setShowSupport(!showSupport)} className={showSupport?'active':''}><Activity size={16}/></button></div>
   <Stage ref={stage} width={size.w} height={size.h} x={camera.x} y={camera.y} scaleX={camera.scale} scaleY={camera.scale}
    onMouseMove={mouseMove} onTouchMove={mouseMove} onMouseLeave={()=>setPointer(null)} onWheel={wheel} onClick={click} onTap={click}
    onMouseDown={e=>{if([1,2].includes(e.evt.button)||e.evt.altKey){pan.current=true;start.current=screen();}}}
@@ -211,7 +218,7 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
      {floor>0&&below&&tilesOnFloor(doc,floor-1).map(t=><Line key={'b'+t.id} points={points(t.polygon)} closed fill="#857866" opacity={.12} dash={[4,6]} stroke="#98836e"/>)}
      {tiles.map(t=>{const c=centroid(t.polygon),selectedTile=selected?.type==='tile'&&selected.id===t.id;
        return <Group key={t.id}>
-         <Line points={points(t.polygon)} closed fill={MATERIAL_COLORS[t.grade]} opacity={.78} stroke={selectedTile?'#f7c78c':'#ae9c87'} strokeWidth={(selectedTile?4:2)/camera.scale}/>
+         <Line points={points(t.polygon)} closed fill={MATERIAL_COLORS[t.grade]} opacity={.78} stroke={selectedTile?'#f7c78c':topology?.nodes[t.id]?.status==='anchor'?'#d1a44d':topology?.nodes[t.id]?.status==='linked'?'#72d6a0':topology?.nodes[t.id]?.status==='unverified'?'#ed6f63':'#ae9c87'} strokeWidth={(selectedTile?4:topology?3:2)/camera.scale}/>
          <Line points={points(t.polygon)} closed dash={[3,6]} stroke="#e3c7a3" opacity={.18} strokeWidth={.7/camera.scale}/>
          {t.kind==='floor-frame'&&<Line points={points(t.polygon.map(p=>({x:c.x+(p.x-c.x)*.82,y:c.y+(p.y-c.y)*.82})))} closed
            fill={t.floorInsert&&t.floorInsert!=='none'?'#576a6c':'#131d20'} opacity={.96} stroke={t.floorInsert&&t.floorInsert!=='none'?'#e9994d':'#cebea9'} strokeWidth={2/camera.scale}/>}
@@ -233,9 +240,9 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
      {(slot||rootPreview)&&<Line points={points(slot?.polygon??rootPreview!)} closed fill="#dd8a4b" opacity={.23} stroke="#f9a062" dash={[6,3]} strokeWidth={2/camera.scale}/>}
    </Layer>
   </Stage>
-  <div className="canvas-bottom-left"><span className="chip"><Move size={13}/> Rechte/Mittlere Maustaste: verschieben</span><span className="chip">Kante anklicken → Bau-Menü</span><span className="chip">↻ Gebäude einpassen</span></div>
+  <div className="canvas-bottom-left"><span className="chip"><Move size={13}/> Rechte/Mittlere Maustaste: verschieben</span><span className="chip">Kante anklicken → Bau-Menü</span>{showSupport&&<span className="chip">Strukturpfade: Grün verbunden · Rot ungeklärt · Gold Fundament (keine Rust-%-Prognose)</span>}<span className="chip">↻ zeigt gesamten Grundriss</span></div>
   <div className="canvas-bottom-right"><button onClick={()=>zoom(1/1.2)} title="Verkleinern"><ZoomOut size={16}/></button><span>{Math.round(camera.scale*100)}%</span>
-    <button onClick={()=>zoom(1.2)} title="Vergrößern"><ZoomIn size={16}/></button><button title="Gesamte Base einpassen" onClick={()=>fitView()}><RotateCcw size={15}/></button></div>
+    <button onClick={()=>zoom(1.2)} title="Vergrößern"><ZoomIn size={16}/></button><button title="Gebäude einpassen und zentrieren" onClick={()=>fitView()}><RotateCcw size={15}/></button></div>
   {tiles.length===0&&tool==='inspect'&&<div className="canvas-empty"><Hammer size={30}/><h3>NEUE BASE KONSTRUIEREN</h3><p>Starte mit einem quadratischen oder dreieckigen Fundament. Alle weiteren Bauteile docken an vorhandene Kanten an.</p>
     <div className="empty-options"><button onClick={()=>onSelectPiece('foundation-square')}><Square size={21}/> Quadrat</button><button onClick={()=>onSelectPiece('foundation-triangle')}><Triangle size={22}/> Dreieck</button></div>
     <label className="field-label">Zusätzlicher Höhenversatz gegenüber dieser Etage (H)</label><div className="offset-pills">{[-.5,0,.5,1].map(v=><button className={rootHeight===v?'picked':''} key={v} onClick={()=>setRootHeight(v)}>{v>0?'+':''}{v}</button>)}</div>
@@ -304,7 +311,7 @@ function App(){
  return <div className="app-shell">
   <header className="hero-topbar">
    <div className="hero-brand"><div className="hero-mark"><Hammer size={32}/></div><div><strong>GHOSTFRAME <span>STUDIO</span></strong><small>RUST BASE PLANNER / STABILITY INTELLIGENCE / RAID ANALYSIS</small></div></div>
-   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.6.3</span></div>
+   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.7.0</span></div>
    <div className="top-actions"><span className="save-state"><Save size={13}/>{saved}</span>
     <button className="icon-button" onClick={undo} disabled={!past.length} title="Rückgängig"><Undo2 size={17}/></button>
     <button className="icon-button" onClick={redo} disabled={!future.length} title="Wiederholen"><Redo2 size={17}/></button>
@@ -379,7 +386,7 @@ function App(){
     {module==='settings'&&<div className="full-module"><div className="module-hero"><span>BEDIENUNG UND DATEN</span><h2>SETTINGS</h2><p>Autosave speichert deine Base lokal im Browser. Daten werden nicht automatisch zu GitHub übertragen.</p></div>
        <div className="settings-card"><strong>Ansicht</strong><div className="mode-switch"><button className={view==='2d'?'selected':''} onClick={()=>{setView('2d');navigate('studio');}}>2D</button><button className={view==='3d'?'selected':''} onClick={()=>{setView('3d');navigate('studio');}}>3D</button><button className={view==='split'?'selected':''} onClick={()=>{setView('split');navigate('studio');}}>Split</button></div></div>
        <div className="settings-card"><strong>Projekt sichern</strong><p>Nutze den JSON-Export für Sicherung und Gerätewechsel.</p><button className="button primary" onClick={()=>exportProject(doc)}><Download size={15}/> JSON exportieren</button></div>
-       <div className="settings-card"><strong>Softwarestand</strong><p>GHOSTFRAME v0.5 · unabhängige Rust-inspirierte Oberfläche, keine Original-Rust-Assets.</p></div>
+       <div className="settings-card"><strong>Softwarestand</strong><p>GHOSTFRAME v0.7.0 · unabhängige Rust-inspirierte Oberfläche, keine Original-Rust-Assets.</p></div>
      </div>}
    </main>
    {!minimized&&<AnalysisPanel doc={doc} selected={selected} path={raidPath} setPath={setRaidPath} tab={analysisTab} setTab={setAnalysisTab} activeRoute={module==='raid'}/>}
@@ -391,7 +398,7 @@ function App(){
     <div><span><BarChart3 size={15}/> AKTUELLES GESCHOSS</span><strong>{numbers.tiles}</strong><small>Flächen F{floor}</small></div>
     <div><span><ShieldAlert size={15}/> RAID STATUS</span><strong>{raidPath.length}</strong><small>Manuelle Ziele</small></div>
   </div>
-  <footer className="statusbar"><span><span className="status-light"/> EDITOR ONLINE</span><span>GHOSTFRAME v0.5 · Originales Wasteland-Design · Nicht von Facepunch</span><span>F{floor} <ChevronRight size={12}/> {doc.tiles.length} TILES</span></footer>
+  <footer className="statusbar"><span><span className="status-light"/> EDITOR ONLINE</span><span>GHOSTFRAME v0.7.0 · Originales Wasteland-Design · Nicht von Facepunch</span><span>F{floor} <ChevronRight size={12}/> {doc.tiles.length} TILES</span></footer>
   {notice&&<div className="toast"><Check size={16}/>{notice}<button onClick={()=>setNotice(null)} aria-label="Meldung schließen"><X size={16}/></button></div>}
   {welcome&&doc.tiles.length===0&&module==='studio'&&view!=='3d'&&<div className="onboarding-hint" role="status"><span>NEUE BASE</span> Wähle links <strong>Quadrat oder Dreieck</strong> und klicke in den Bauplan. <button onClick={()=>setWelcome(false)}>OK</button></div>}
  </div>;

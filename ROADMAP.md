@@ -112,3 +112,10 @@ Die Arbeit erfolgt in **größeren integrierten Release-Blöcken**. Pro Block we
 - [ ] GitHub Actions Build/Deployment auf Release SHA erfolgreich bestätigen
 
 **Nächster großer Block:** aktuelle Rust-Socket- und Stabilitätsregeln, genaue Höhen- und 3D-Geometrie auch für Spezialkonstruktionen, Bauteil-/Damage-Datensätze pro Spielversion und darauf basierend belastbare Raid-Wege. Keine unvalidierte Optimierung oder fingierte Wahrscheinlichkeit.
+
+
+## Großes Release v0.7 · Structural Intelligence
+
+- Geometrischer Fundamentpfad-Solver, höhenabhängige 3D-Kopplungen, 2D/3D-Overlays und Was-wäre-wenn-Entfernung umgesetzt.
+- Prozentgenaue Rust-Stabilitätsformel **nicht** implementiert: explizit als unkalibriertes Strukturmodell dokumentiert.
+- Weiter: Validierte Rust-Ingame-Referenzfälle, gespeicherte Beobachtungen, Mehrdeutigkeitsmodell und probabilistisches Blueprint-Matching erst nach Kalibrierung.

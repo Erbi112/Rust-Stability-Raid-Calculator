@@ -3,6 +3,7 @@ import { Activity, ArrowRight, BarChart3, Crosshair, Database, HelpCircle, Layer
 import type { BlueprintDocument } from '../core/blueprint.ts';
 import { MATERIAL_NAMES, WALL_KIND_NAMES } from '../core/editor.ts';
 import { calculateManualRaid } from '../core/raid.ts';
+import { structuralConnectivity, simulateStructuralRemoval } from '../core/stability.ts';
 import type { SelectedEntity } from '../core/editor.ts';
 export type AnalysisTab='raid'|'stability'|'stats';
 export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute}: {
@@ -10,6 +11,9 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute}
  tab:AnalysisTab;setTab:(t:AnalysisTab)=>void;activeRoute:boolean;
 }){
  const result=useMemo(()=>calculateManualRaid(doc,path),[doc,path]);
+ const topology=useMemo(()=>structuralConnectivity(doc),[doc]);
+ const selectedStatus=selected?topology.nodes[selected.id]:undefined;
+ const impact=useMemo(()=>selected&&topology.nodes[selected.id]?simulateStructuralRemoval(doc,selected.id):null,[doc,selected,topology]);
  const [method,setMethod]=useState<'rockets'|'c4'>('rockets');
  const currentSelected=selected?(selected.type==='edge'?doc.edges.find(e=>e.id===selected.id):doc.tiles.find(t=>t.id===selected.id)):undefined;
  const inPath=!!selected&&path.includes(selected.id);
@@ -59,7 +63,27 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute}
        <div className="statline"><span>Nicht gemessen</span><strong>{estimates-measured.length}</strong></div>
        {avg!==null&&<div className="stability-track"><div style={{width:`${avg}%`}}/></div>}
      </div>
-     <div className="calculator-block future-module"><div className="block-headline"><span>STRUCTURAL SOLVER</span><span className="small-label">GEPLANT</span></div><p>Tragende Verbindungen, unterschiedliche Fundamenthöhen und simulierte Einstürze werden in der nächsten Engine validiert.</p></div>
+     <div className="calculator-block structural-block">
+       <div className="block-headline"><span>STRUKTURMODELL V1</span><span className="small-label">TOPOLOGIE · BETA</span></div>
+       <div className="structural-grid"><div><strong>{topology.anchors.length}</strong><small>Fundament-Anker</small></div><div><strong>{topology.linkedCount}</strong><small>Verbunden (inkl. Anker)</small></div><div className={topology.unverifiedCount?'structural-alert':''}><strong>{topology.unverifiedCount}</strong><small>Nicht nachgewiesen</small></div><div><strong>{topology.links.length}</strong><small>Geometrische Verbindungen</small></div></div>
+       <div className="structural-legend"><span><i className="structural-dot anchor"/>Fundament</span><span><i className="structural-dot linked"/>Verbindung</span><span><i className="structural-dot unverified"/>Ungeklärt</span></div>
+       <p className="subtle-note">Die Engine verknüpft gleichhohe Nachbarflächen und eingetragene Wände mit passenden oberen Bodenplatten. Ein Fundament auf F0 gilt nur im Modell als Anker.</p>
+       {topology.warnings.slice(0,2).map((warning,i)=><p key={i} className="structural-warning">{warning}</p>)}
+     </div>
+     <div className="calculator-block">
+       <div className="block-headline"><span>STÜTZPFAD / WAS-WÄRE-WENN</span><span className="small-label">NICHT DESTRUKTIV</span></div>
+       {selectedStatus?<>
+         <div className="statline"><span>Gewähltes Bauteil</span><strong>{selectedStatus.type==='tile'?'Grundfläche':'Wand / Rahmen'} · F{selectedStatus.floor}</strong></div>
+         <div className="statline"><span>Dokumentierter Ankerpfad</span><strong>{selectedStatus.status==='anchor'?'Fundament-Anker':selectedStatus.status==='linked'?`${selectedStatus.distance} Verbindung(en)`:'Nicht nachgewiesen'}</strong></div>
+         <div className="statline"><span>Nachbarn im Strukturmodell</span><strong>{selectedStatus.neighbors}</strong></div>
+         <div className={`structural-impact ${impact?.newlyUnverified.length?'structural-impact-risk':''}`}>
+           <strong>Bauteil hypothetisch entfernen</strong>
+           <span>{impact?.newlyUnverified.length?`${impact.newlyUnverified.length} weitere Bauteile verlieren dabei im Modell ihren Fundamentpfad.`:'Kein zusätzlicher Verlust eines bereits nachgewiesenen Fundamentpfads.'}</span>
+           {!!impact?.newlyUnverified.length&&<small>Betroffene IDs: {impact.newlyUnverified.slice(0,5).map(id=>id.slice(0,10)).join(', ')}{impact.newlyUnverified.length>5?' …':''}</small>}
+         </div>
+       </>:<p className="subtle-note">Im 2D-Bauplan ein Fundament, einen Boden oder eine Wand anklicken. Hier erscheinen der nachvollziehbare Stützpfad und die Folgen einer hypothetischen Entfernung.</p>}
+       <p className="subtle-note">Keine Bauteile werden verändert. Nicht nachgewiesen bedeutet NICHT automatisch Einsturz. Rust-Werte können nur durch Ingame-Validierung verifiziert werden.</p>
+     </div>
    </>}
    {tab==='stats'&&<>
      <div className="calculator-block"><div className="block-headline"><span>BAUWERK-ÜBERSICHT</span><Layers3 size={17}/></div>

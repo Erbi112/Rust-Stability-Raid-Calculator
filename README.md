@@ -76,14 +76,12 @@ See [ROADMAP.md](ROADMAP.md) and [v0.5 release notes](docs/RELEASE-v0.5.md).
 
 **Development principle:** one complete integrated functional release block, then comprehensive regression test / CI deployment, then the next large block.
 
-## v0.6.1
-
-2D-Bauplan wird am tatsächlichen Grundriss zentriert; 3D-Grundflächen und Wände sind X/Z-identisch und berücksichtigen die Höhen. Eigenständige rustindustrielle Gestaltung. Stabilitäts-/Raidberechnung noch nicht vollständig validiert.
-
 ## Multi-floor building (v0.6.2)
 
 F1 starts one full wall-height above F0, including any local foundation offset. On F1+, choose **Untergeschoss als Decke übernehmen** to copy the previous floor footprint into true floor plates with correct elevations. Previously saved plans with F1 at 0 H show an explicit **ältere Etagenhöhen korrigieren** action; this action is undoable. See [release notes](docs/RELEASE-v0.6.2.md).
 
-## v0.6.3 – Leiterklappe und Garagentor
+## Structural Intelligence · v0.7
 
-Im Baukatalog sind Leiterklappen für quadratische und dreieckige Bodenrahmen sowie das Garagentor für Wandrahmen auswählbar. 2D/3D und JSON-Persistenz bilden Einbauten separat vom Tragwerk ab. [Release-Details](docs/RELEASE-v0.6.3.md).
+The Stability tab now offers a deterministic, transparent **geometric connectivity model** with 2D and 3D overlays and a non-destructive *what-if removal* analysis for selected building parts. It treats recorded F0 foundations as model anchors, adjacent pieces at equal elevation as possible links, and entered walls/frames as potential vertical support for floors one level above. This is **not** the Rust stability formula; unknown connections are not automatically collapsed, and measured hammer stability values are never replaced with invented percentages.
+
+See [v0.7 release notes](docs/RELEASE-v0.7.md) for behavior and limitations.
