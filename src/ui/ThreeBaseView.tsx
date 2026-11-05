@@ -3,12 +3,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { BlueprintDocument, BuildingEdge, BuildingTile, MaterialGrade } from '../core/blueprint.ts';
 import { edgeAt, sameEdge, type Point } from '../core/geometry.ts';
+import {planToWorld,PLAN_UNIT_METERS,WALL_HEIGHT_METERS} from '../core/projection.ts';
 
-const UNIT=0.03; // 100 geometric units ~3 m; only a visual reference for this 3D projection.
-const WALL_HEIGHT=3;
+const UNIT=PLAN_UNIT_METERS;
+const WALL_HEIGHT=WALL_HEIGHT_METERS;
 const COLORS:Record<MaterialGrade,number>={twig:0x97704c,wood:0x946a43,stone:0x9e9890,metal:0x748c91,armored:0x425d6b,unknown:0x7b736c};
 export type ViewFloorMode='all'|'current';
-function worldXY(p:Point){return {x:p.x*UNIT,z:p.y*UNIT};}
+function worldXY(p:Point){const q=planToWorld(p);return {x:q.x,z:q.z};}
 function owningTile(doc:BlueprintDocument,e:BuildingEdge):BuildingTile|undefined {
   return doc.tiles.find(t=>t.floor===e.floor&&t.polygon.some((_,i)=>{const [a,b]=edgeAt(t.polygon,i);return sameEdge(a,b,e.a,e.b);}));
 }
@@ -23,6 +24,7 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
   renderer.setSize(Math.max(1,container.clientWidth),Math.max(1,container.clientHeight));
   renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure=1.25;
   container.appendChild(renderer.domElement);
@@ -41,11 +43,14 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
   controls.target.copy(center);controls.maxPolarAngle=Math.PI*.49;controls.minDistance=3;controls.maxDistance=160;
   if(top){camera.position.set(center.x+.01,center.y+radius*1.8,center.z+.01);controls.target.copy(center);}
   scene.add(new THREE.HemisphereLight(0xdfe8ef,0x3a2c20,2.2));
-  const sun=new THREE.DirectionalLight(0xffd1a3,3.1);sun.position.set(-12,25,18);scene.add(sun);
+  const sun=new THREE.DirectionalLight(0xffd1a3,3.1);sun.position.set(-12,25,18);
+  sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
+  sun.shadow.camera.left=-28;sun.shadow.camera.right=28;sun.shadow.camera.top=28;sun.shadow.camera.bottom=-28;
+  scene.add(sun);
   const fill=new THREE.DirectionalLight(0xa9c1ce,1.4);fill.position.set(11,9,-15);scene.add(fill);
-  const grid=new THREE.GridHelper(80,80,0x4b554f,0x333c3b);grid.position.y=-.46;scene.add(grid);
+  const grid=new THREE.GridHelper(80,80,0x4b554f,0x333c3b);grid.position.y=Math.min(-.46,minY-.46);scene.add(grid);
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(90,90),new THREE.MeshStandardMaterial({color:0x232a26,roughness:1}));
-  ground.rotation.x=-Math.PI/2;ground.position.y=-.5;scene.add(ground);
+  ground.rotation.x=-Math.PI/2;ground.position.y=Math.min(-.5,minY-.5);ground.receiveShadow=true;scene.add(ground);
   const group=new THREE.Group();scene.add(group);
   const meshMaterial=(grade:MaterialGrade,transparent=false)=>new THREE.MeshStandardMaterial({
     color:COLORS[grade],roughness:grade==='metal'||grade==='armored'?.57:.93,metalness:grade==='metal'||grade==='armored'?.32:0,
@@ -58,18 +63,19 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
     x:number,y:number,z:number,rotate=0,opacity=1)=>{
     const mat=new THREE.MeshStandardMaterial({color,roughness:.83,metalness:.09,transparent:opacity<1,opacity});
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(length,height,depth),mat);
-    mesh.position.set(x,y,z);mesh.rotation.y=rotate;parent.add(mesh);return mesh;
+    mesh.position.set(x,y,z);mesh.rotation.y=rotate;mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;
   };
   for(const tile of doc.tiles.filter(t=>visible(t.floor))){
     const shape=new THREE.Shape();
     tile.polygon.forEach((p,i)=>{const pt=worldXY(p);if(i===0)shape.moveTo(pt.x,pt.z);else shape.lineTo(pt.x,pt.z);});shape.closePath();
     const thickness=tile.kind==='foundation'?.40:.17;
     const geometry=new THREE.ExtrudeGeometry(shape,{depth:thickness,bevelEnabled:true,bevelSegments:1,steps:1,bevelSize:.025,bevelThickness:.015});
-    geometry.rotateX(-Math.PI/2);
+    geometry.rotateX(Math.PI/2); // +planY maps to +worldZ
     const solid=tile.kind!=='floor-frame';
     const mat=meshMaterial(tile.grade,!solid);
     const floorMesh=new THREE.Mesh(geometry,mat);
-    floorMesh.position.y=tileY(tile)-thickness;group.add(floorMesh);
+    floorMesh.position.y=tileY(tile); // upper face at the matching wall base
+    floorMesh.castShadow=true;floorMesh.receiveShadow=true;group.add(floorMesh);
     // Fine metallic perimeter to make the precise polygons legible at any camera angle.
     const pts=tile.polygon.map(p=>{const q=worldXY(p);return new THREE.Vector3(q.x,tileY(tile)+.018,q.z);});pts.push(pts[0]!.clone());
     group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xdbc6aa,transparent:true,opacity:.67})));

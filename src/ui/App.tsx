@@ -17,6 +17,7 @@ import { exportProject, importProject, loadProject, saveProject } from '../servi
 import { CATALOG, CATALOG_GROUPS, getCatalogPiece, type CatalogPiece } from '../core/catalog.ts';
 import { StructureIcon } from './StructureIcon.tsx';
 import { ThreeBaseView } from './ThreeBaseView.tsx';
+import { fitCameraToTiles } from '../core/viewport.ts';
 import { AnalysisPanel, type AnalysisTab } from './AnalysisPanel.tsx';
 
 const MATERIALS:MaterialGrade[]=['twig','wood','stone','metal','armored','unknown'];
@@ -115,15 +116,28 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
  const [size,setSize]=useState({w:950,h:660}),[camera,setCamera]=useState({x:475,y:330,scale:1});
  const [pointer,setPointer]=useState<Point|null>(null),[menu,setMenu]=useState<ContextMenu|null>(null);
  const [grid,setGrid]=useState(true),[below,setBelow]=useState(true),[rootHeight,setRootHeight]=useState(0);
+ const lastSize=useRef({w:950,h:660}),measured=useRef(false);
+ const tiles=useMemo(()=>tilesOnFloor(doc,floor),[doc,floor]);
+ const fitView=useCallback((w=size.w,h=size.h)=>
+   setCamera(fitCameraToTiles(tiles.length?tiles:doc.tiles,w,h)),[tiles,doc.tiles,size.w,size.h]);
  useEffect(()=>{
   const node=wrapper.current;if(!node)return;
   const observer=new ResizeObserver(([entry])=>{
-   if(!entry)return;
-   setSize(s=>{const w=Math.max(300,entry.contentRect.width),h=Math.max(300,entry.contentRect.height);
-    setCamera(c=>({...c,x:c.x+(w-s.w)/2,y:c.y+(h-s.h)/2}));return {w,h};});
-  });observer.observe(node);return ()=>observer.disconnect();
+    if(!entry)return;
+    const w=Math.max(300,entry.contentRect.width),h=Math.max(300,entry.contentRect.height);
+    const prior=lastSize.current;lastSize.current={w,h};setSize({w,h});
+    if(!measured.current){
+      measured.current=true;
+      const state=useEditor.getState(),floorTiles=tilesOnFloor(state.doc,state.floor);
+      setCamera(fitCameraToTiles(floorTiles.length?floorTiles:state.doc.tiles,w,h));
+    }else setCamera(c=>({...c,x:c.x+(w-prior.w)/2,y:c.y+(h-prior.h)/2}));
+  });observer.observe(node);return()=>observer.disconnect();
  },[]);
- const tiles=useMemo(()=>tilesOnFloor(doc,floor),[doc,floor]);
+ useEffect(()=>{
+   if(!measured.current)return;
+   const state=useEditor.getState(),floorTiles=tilesOnFloor(state.doc,state.floor);
+   setCamera(fitCameraToTiles(floorTiles.length?floorTiles:state.doc.tiles,lastSize.current.w,lastSize.current.h));
+ },[doc.id,floor]);
  const slots=useMemo(()=>tool==='square'||tool==='triangle'?slotsFor(doc,floor,tool):[],[doc,floor,tool]);
  const slot=useMemo(()=>pointer?nearSlot(slots,pointer):null,[slots,pointer]);
  const world=useCallback(()=>{const q=stage.current?.getPointerPosition();return q?{x:(q.x-camera.x)/camera.scale,y:(q.y-camera.y)/camera.scale}:null;},[camera]);
@@ -193,9 +207,9 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
      {(slot||rootPreview)&&<Line points={points(slot?.polygon??rootPreview!)} closed fill="#dd8a4b" opacity={.23} stroke="#f9a062" dash={[6,3]} strokeWidth={2/camera.scale}/>}
    </Layer>
   </Stage>
-  <div className="canvas-bottom-left"><span className="chip"><Move size={13}/> Rechte/Mittlere Maustaste: verschieben</span><span className="chip">Kante anklicken → Bau-Menü</span></div>
+  <div className="canvas-bottom-left"><span className="chip"><Move size={13}/> Rechte/Mittlere Maustaste: verschieben</span><span className="chip">Kante anklicken → Bau-Menü</span><span className="chip">↻ Gebäude einpassen</span></div>
   <div className="canvas-bottom-right"><button onClick={()=>zoom(1/1.2)} title="Verkleinern"><ZoomOut size={16}/></button><span>{Math.round(camera.scale*100)}%</span>
-    <button onClick={()=>zoom(1.2)} title="Vergrößern"><ZoomIn size={16}/></button><button title="Zentrieren" onClick={()=>setCamera({x:size.w/2,y:size.h/2,scale:1})}><RotateCcw size={15}/></button></div>
+    <button onClick={()=>zoom(1.2)} title="Vergrößern"><ZoomIn size={16}/></button><button title="Gesamte Base einpassen" onClick={()=>fitView()}><RotateCcw size={15}/></button></div>
   {tiles.length===0&&tool==='inspect'&&<div className="canvas-empty"><Hammer size={30}/><h3>NEUE BASE KONSTRUIEREN</h3><p>Starte mit einem quadratischen oder dreieckigen Fundament. Alle weiteren Bauteile docken an vorhandene Kanten an.</p>
     <div className="empty-options"><button onClick={()=>onSelectPiece('foundation-square')}><Square size={21}/> Quadrat</button><button onClick={()=>onSelectPiece('foundation-triangle')}><Triangle size={22}/> Dreieck</button></div>
     <label className="field-label">Start-Fundamenthöhe (H)</label><div className="offset-pills">{[-.5,0,.5,1].map(v=><button className={rootHeight===v?'picked':''} key={v} onClick={()=>setRootHeight(v)}>{v>0?'+':''}{v}</button>)}</div>

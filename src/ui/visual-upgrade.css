@@ -1,0 +1,42 @@
+/* GHOSTFRAME v0.6.1 · original weathered-industrial studio */
+:root{--gf-ember:#f09349;--gf-cream:#f4e4cb;--gf-bg:#10171b}
+.hero-topbar{height:92px;min-height:92px;padding:0 23px;gap:15px;
+ background:linear-gradient(90deg,#0a131be9 0%,#10171dc2 33%,#151b20a2 64%,#0b1117e0 100%),
+ linear-gradient(0deg,#070c10de,transparent 55%),url('../assets/industrial-header.svg') center 54%/cover no-repeat;
+ border-bottom:3px solid #c27035;box-shadow:0 6px 24px #000b}
+.hero-topbar:after{content:'';position:absolute;left:0;right:0;bottom:-2px;height:1px;background:linear-gradient(90deg,#ffac5b,transparent 55%,#ae5727);pointer-events:none}
+.hero-brand strong{font-size:31px;letter-spacing:1.1px;text-shadow:0 3px 8px #000}
+.hero-brand small{color:#e0d7c8;text-shadow:0 2px 4px #000;font-size:9px;letter-spacing:1.3px}
+.hero-mark{background:#192329b4;border:1px solid #b46b3d77;box-shadow:inset 0 1px #ffc28b22}
+.hero-mark svg{stroke:#ff9d48;filter:drop-shadow(0 0 8px #c86a37)}
+.hero-project{background:#101b24dd;border:1px solid #896b54;box-shadow:0 3px 13px #0009}
+.main-nav{height:49px;min-height:49px;background:linear-gradient(#2a343b,#11191f);border-bottom:2px solid #4f5d62}
+.main-nav button{gap:10px;letter-spacing:.35px;font-size:11px}
+.main-nav button.current{background:linear-gradient(#a6572b,#d97934 52%,#713316);box-shadow:inset 0 1px #ffd39c93,0 0 16px #df7e3377}
+.main-layout{gap:6px;padding:7px;background:radial-gradient(ellipse at center,#293239,#0b1014)}
+.builder-panel,.analysis-panel{background:linear-gradient(145deg,#253138,#121b22 68%);border:1px solid #697579;box-shadow:inset 0 1px #ffffff16,0 6px 14px #0009}
+.panel-head{background:linear-gradient(110deg,#373f43,#1d2930 80%);border-bottom:2px solid #ad6845;letter-spacing:.45px}
+.catalog-section{border:1px solid #526069;margin-bottom:9px}
+.catalog-group-title{background:linear-gradient(#2d3c43,#172329);padding:11px 10px}
+.piece-grid{gap:6px;padding:7px}
+.piece-card{min-height:104px;border:1px solid #778184;box-shadow:inset 0 1px #ffffff2b,0 2px 7px #0009;border-radius:4px;
+ background:radial-gradient(ellipse at 50% 25%,#c3a38328,transparent 72%),linear-gradient(150deg,#3a4850,#182229 81%);
+ transition:transform .16s,background .16s}
+.piece-card:hover{transform:translateY(-1px);background:radial-gradient(ellipse at 50% 25%,#bda18b4b,transparent 75%),linear-gradient(#475159,#263139)}
+.piece-card.selected{background:linear-gradient(145deg,#704126,#293036);border-color:#ef9949;box-shadow:inset 0 0 0 1px #f4c59e69,0 0 15px #d1713c55}
+.piece-card>span{font-size:9px;color:#f0e8de;line-height:1.25}
+.piece-glyph{width:70px;height:59px;filter:drop-shadow(1px 4px 3px #000b)}
+.studio-toolbar{background:linear-gradient(110deg,#303b41,#202a32 70%,#3c2f29);border-bottom:2px solid #8e6248}
+.studio-title-icon{border-color:#c18355;background:linear-gradient(#3c4347,#202a30);color:#ffbc79}
+.studio-title strong{font-size:22px}
+.view-toolbar{background:linear-gradient(#27333b,#161e25)}
+.mode-switch button.selected{background:linear-gradient(#da8443,#8c411f);box-shadow:0 0 10px #e98a4566}
+.two-d-view{background:radial-gradient(ellipse at 50% 50%,#303a3e,#171f24)}
+.view-split .three-d-view{border-left:3px solid #d88342;box-shadow:-5px 0 15px #0008}
+.canvas-top-left{background:#18242be8;border:1px solid #8d765e}
+.canvas-bottom-right{border-color:#bd794b;box-shadow:0 4px 13px #000a}
+.analysis-panel .calculator-block{background:linear-gradient(135deg,#283239,#141d23);border-color:#617075}
+.bottom-dashboard{border-top:2px solid #7d5139}
+.bottom-dashboard>div{background:linear-gradient(#2d3a41,#141e24);border-top:2px solid #885c3f}
+.module-hero{background:linear-gradient(110deg,#24313ae6,#20272cb8),url('../assets/industrial-header.svg') center/cover}
+@media(max-width:1450px){.hero-topbar{height:80px;min-height:80px}.piece-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.piece-glyph{width:62px;height:53px}.piece-card{min-height:94px}}

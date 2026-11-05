@@ -75,3 +75,7 @@ GitHub Pages is configured to deploy from **GitHub Actions**. Every push to `mai
 See [ROADMAP.md](ROADMAP.md) and [v0.5 release notes](docs/RELEASE-v0.5.md).
 
 **Development principle:** one complete integrated functional release block, then comprehensive regression test / CI deployment, then the next large block.
+
+## v0.6.1
+
+2D-Bauplan wird am tatsächlichen Grundriss zentriert; 3D-Grundflächen und Wände sind X/Z-identisch und berücksichtigen die Höhen. Eigenständige rustindustrielle Gestaltung. Stabilitäts-/Raidberechnung noch nicht vollständig validiert.
