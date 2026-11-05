@@ -73,9 +73,9 @@ export function compareLibraryBase(observed:BlueprintDocument,candidates:readonl
   const floorPenalty=Math.abs(candidateFloors-floors)/Math.max(1,candidateFloors,floors);
   const gradePenalty=e.doc.tiles.length&&observed.tiles.length ? Math.abs((e.doc.tiles.filter(t=>t.grade==='metal').length/e.doc.tiles.length)-(observed.tiles.filter(t=>t.grade==='metal').length/observed.tiles.length)) : 0;
   const h=heightPattern(e.doc);
-  const sample=observedPattern.adjacency.filter(a=>h.adjacency.some(b=>b.pair===a.pair&&Math.abs(a.delta-b.delta)<.01)).length;
-  const heightPenalty=observedPattern.adjacency.length?(1-sample/observedPattern.adjacency.length):0;
+  const sample=observedPattern.transitions.filter(a=>h.transitions.some(b=>b.pair===a.pair&&Math.abs(a.delta-b.delta)<.01)).length;
+  const heightPenalty=observedPattern.transitions.length?(1-sample/observedPattern.transitions.length):0;
   const score=Math.max(0,Math.min(100,Math.round(100*(1-(.56*shapePenalty+.22*floorPenalty+.12*gradePenalty+.10*heightPenalty)))));
-  return {key:e.key,score,confidence:'coarse-structure-only' as const,reasons:[`Grundformen: ${other.join(' / ')}`,`Etagen: ${candidateFloors}`,observedPattern.adjacency.length?'Höhenübergänge teilweise verglichen':'Keine gemeinsamen gemessenen Höhenübergänge']};
+  return {key:e.key,score,confidence:'coarse-structure-only' as const,reasons:[`Grundformen: ${other.join(' / ')}`,`Etagen: ${candidateFloors}`,observedPattern.transitions.length?'Höhenübergänge teilweise verglichen':'Keine gemeinsamen gemessenen Höhenübergänge']};
  }).sort((a,b)=>b.score-a.score);
 }
