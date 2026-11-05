@@ -167,38 +167,38 @@ function EditorCanvas(){
       onClick={handleClick} onTap={handleClick} onWheel={handleWheel}
       onContextMenu={e=>e.evt.preventDefault()}>
       <Layer listening={false}>
-        <Rect x={-5000} y={-5000} width={10000} height={10000} fill="#0a1522"/>
-        {showGrid&&gridLines.map((l,i)=><Line key={i} points={l.points} stroke={l.heavy?'#325071':'#24425c'} opacity={l.heavy?.32:.18} strokeWidth={.7/camera.scale}/>)}
-        {showGrid&&<><Line points={[-4000,0,4000,0]} stroke="#4e7899" opacity={.3}/><Line points={[0,-4000,0,4000]} stroke="#4e7899" opacity={.3}/></>}
-        {floor>0&&showBelow&&below.map(t=><Line key={'below'+t.id} points={points(t.polygon)} closed fill="#26415b" opacity={.25} dash={[6,5]} stroke="#5e85aa" strokeWidth={1.3/camera.scale}/>)}
+        <Rect x={-5000} y={-5000} width={10000} height={10000} fill="#1d1e1b"/>
+        {showGrid&&gridLines.map((l,i)=><Line key={i} points={l.points} stroke={l.heavy?'#655548':'#493f38'} opacity={l.heavy?.32:.18} strokeWidth={.7/camera.scale}/>)}
+        {showGrid&&<><Line points={[-4000,0,4000,0]} stroke="#78624c" opacity={.3}/><Line points={[0,-4000,0,4000]} stroke="#78624c" opacity={.3}/></>}
+        {floor>0&&showBelow&&below.map(t=><Line key={'below'+t.id} points={points(t.polygon)} closed fill="#564535" opacity={.25} dash={[6,5]} stroke="#a6886b" strokeWidth={1.3/camera.scale}/>)}
         {tiles.map(tile=><Group key={tile.id}>
           <Line points={points(tile.polygon)} closed fill={MATERIAL_COLORS[tile.grade]} opacity={.48}
-            stroke={selected?.type==='tile'&&selected.id===tile.id?'#ffe39b':'#7ccce8'}
+            stroke={selected?.type==='tile'&&selected.id===tile.id?'#ffe39b':'#caa582'}
             strokeWidth={(selected?.type==='tile'&&selected.id===tile.id?4:1.8)/camera.scale}/>
-          <Line points={points(tile.polygon)} closed stroke="#a3dcfa" opacity={.12} strokeWidth={.5/camera.scale}/>
+          <Line points={points(tile.polygon)} closed stroke="#d3ae87" opacity={.12} strokeWidth={.5/camera.scale}/>
           <KonvaText x={centroid(tile.polygon).x-24} y={centroid(tile.polygon).y-16} width={48}
             text={tile.elevation===undefined?'H ?':`H ${tile.elevation>=0?'+':''}${tile.elevation}`} align="center"
             fill="#ffd5ac" fontSize={11} fontStyle="bold"/>
           <KonvaText x={centroid(tile.polygon).x-22} y={centroid(tile.polygon).y+2} width={44}
             text={tile.stability.percent===null?'—':`${tile.stability.percent}%`} align="center"
-            fill={tile.stability.percent===null?'#88a9bd':'#e1fbff'} fontSize={13/camera.scale>18?18:13}
+            fill={tile.stability.percent===null?'#c0ac96':'#ffe3c4'} fontSize={13/camera.scale>18?18:13}
             fontStyle="bold"/>
         </Group>)}
         {doc.edges.filter(w=>w.floor===floor).map(w=><Group key={w.id}>
-          <Line points={pointLine(w.a,w.b)} stroke="#09131e" strokeWidth={11/camera.scale} lineCap="round"/>
+          <Line points={pointLine(w.a,w.b)} stroke="#161411" strokeWidth={11/camera.scale} lineCap="round"/>
           {w.kind==='doorway'?<>
-            <Line points={[w.a.x,w.a.y,w.a.x+(w.b.x-w.a.x)*.26,w.a.y+(w.b.y-w.a.y)*.26]} stroke="#fbc48b" strokeWidth={6/camera.scale} lineCap="round"/>
-            <Line points={[w.b.x,w.b.y,w.b.x+(w.a.x-w.b.x)*.26,w.b.y+(w.a.y-w.b.y)*.26]} stroke="#fbc48b" strokeWidth={6/camera.scale} lineCap="round"/>
-            <Circle x={(w.a.x+w.b.x)/2} y={(w.a.y+w.b.y)/2} radius={4/camera.scale} fill="#fbc48b"/>
-          </>:<Line points={pointLine(w.a,w.b)} stroke={w.kind==='window'?'#8ce9e8':'#d5edfa'} strokeWidth={w.kind==='window'?4/camera.scale:7/camera.scale} dash={w.kind==='window'?[8,4]:undefined} lineCap="round"/>}
-          {selected?.type==='edge'&&selected.id===w.id&&<Line points={pointLine(w.a,w.b)} stroke="#ffdc96" strokeWidth={2.5/camera.scale} dash={[3,4]}/>}
+            <Line points={[w.a.x,w.a.y,w.a.x+(w.b.x-w.a.x)*.26,w.a.y+(w.b.y-w.a.y)*.26]} stroke="#dca477" strokeWidth={6/camera.scale} lineCap="round"/>
+            <Line points={[w.b.x,w.b.y,w.b.x+(w.a.x-w.b.x)*.26,w.b.y+(w.a.y-w.b.y)*.26]} stroke="#dca477" strokeWidth={6/camera.scale} lineCap="round"/>
+            <Circle x={(w.a.x+w.b.x)/2} y={(w.a.y+w.b.y)/2} radius={4/camera.scale} fill="#dca477"/>
+          </>:<Line points={pointLine(w.a,w.b)} stroke={w.kind==='window'?'#bdab95':'#eed0ac'} strokeWidth={w.kind==='window'?4/camera.scale:7/camera.scale} dash={w.kind==='window'?[8,4]:undefined} lineCap="round"/>}
+          {selected?.type==='edge'&&selected.id===w.id&&<Line points={pointLine(w.a,w.b)} stroke="#ebad80" strokeWidth={2.5/camera.scale} dash={[3,4]}/>}
         </Group>)}
         {isPlacer(tool)&&slots.map((slot,i)=><Line key={'slot'+i} points={points(slot.polygon)} closed
-          fill="#67e8d5" opacity={.03} stroke="#60ccb5" strokeWidth={1/camera.scale} dash={[5,7]}/>)}
+          fill="#d5a16f" opacity={.03} stroke="#a87b56" strokeWidth={1/camera.scale} dash={[5,7]}/>)}
         {isPlacer(tool)&&(activeSlot||firstPolygon)&&<Line points={points(activeSlot?.polygon??firstPolygon!)} closed
-          fill="#34d7bc" opacity={.27} stroke="#63f7ce" strokeWidth={2.4/camera.scale} dash={[6,3]}/>}
+          fill="#d98b58" opacity={.27} stroke="#e2a372" strokeWidth={2.4/camera.scale} dash={[6,3]}/>}
         {wallKind(tool)&&edgeTarget&&<Line points={pointLine(edgeTarget.a,edgeTarget.b)} stroke="#ffcf8a" strokeWidth={7/camera.scale}/>}
-        {(tool==='square'||tool==='triangle')&&pointer&&<Circle x={hitPoint.x} y={hitPoint.y} radius={3/camera.scale} fill="#74f7d7" opacity={.65}/>}
+        {(tool==='square'||tool==='triangle')&&pointer&&<Circle x={hitPoint.x} y={hitPoint.y} radius={3/camera.scale} fill="#dd9866" opacity={.65}/>}
       </Layer>
     </Stage>
     <div className="canvas-bottom-left"><span className="chip"><Move size={12}/> Mittlere Maustaste: verschieben</span><span className="chip">Mausrad: zoomen</span></div>

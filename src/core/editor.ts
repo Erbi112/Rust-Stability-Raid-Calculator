@@ -7,7 +7,7 @@ export type Slot = Readonly<{ sourceId: string; edgeIndex: number; polygon: Poly
 export type EdgeTarget = Readonly<{ a: Point; b: Point; floor: number; distance: number; tileId: string; edgeIndex: number }>;
 
 export const MATERIAL_COLORS: Record<MaterialGrade,string> = {
-  twig: '#a87b4b', wood: '#aa7956', stone: '#3b728b', metal: '#5686b1', armored: '#8e80bd', unknown: '#5b687c'
+  twig:'#836144',wood:'#99653f',stone:'#888177',metal:'#697779',armored:'#545a62',unknown:'#514b47'
 };
 export const MATERIAL_NAMES: Record<MaterialGrade,string> = {
   twig:'Twig', wood:'Holz', stone:'Stein', metal:'Metall', armored:'High Quality', unknown:'Unbekannt'
