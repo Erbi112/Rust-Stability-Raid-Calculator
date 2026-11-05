@@ -8,6 +8,9 @@ export type EdgeKind = 'wall' | 'doorway' | 'window' | 'wall-frame' | 'half-wall
 /** Left/right mean the two sides of an oriented wall edge (A→B). */
 export type SoftSide = 'left' | 'right' | 'up' | 'down' | 'unknown';
 export type DoorInsert = 'none' | 'wood-door' | 'sheet-metal-door' | 'armored-door' | 'garage-door' | 'double-sheet-metal-door' | 'double-armored-door';
+/** Insert placed into a floor frame, separate from the supporting structure. */
+export type FloorInsert = 'none' | 'ladder-hatch' | 'triangle-ladder-hatch';
+export const FLOOR_INSERTS: FloorInsert[] = ['none','ladder-hatch','triangle-ladder-hatch'];
 export type HealthState = { current: number | null; max: number | null };
 
 export interface MeasuredStability {
@@ -38,6 +41,8 @@ export interface BuildingTile {
   health?: HealthState;
   softSide?: SoftSide;
   rotation?: number;
+  /** Hatch insert; only permitted in a matching square/triangle floor frame. */
+  floorInsert?: FloorInsert;
   /** The top-surface elevation measured in wall heights (H). Optional because a screenshot often cannot reveal z. */
   elevation?: number;
 }

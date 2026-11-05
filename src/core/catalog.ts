@@ -1,11 +1,11 @@
 /** Typed construction catalog. Geometry/projection support != verified in-game snap legality. */
-import type { BuildingKind, DoorInsert, EdgeKind } from './blueprint.ts';
+import type { BuildingKind, DoorInsert, EdgeKind, FloorInsert } from './blueprint.ts';
 import type { TileShape } from './geometry.ts';
 
 export type CatalogPiece = Readonly<{
   id:string; label:string; shortLabel:string; group:string;
-  category:'tile'|'edge'|'insert';
-  shape?:TileShape; tileKind?:BuildingKind; edgeKind?:EdgeKind; insert?:DoorInsert;
+  category:'tile'|'edge'|'insert'|'floor-insert';
+  shape?:TileShape; tileKind?:BuildingKind; edgeKind?:EdgeKind; insert?:DoorInsert; floorInsert?:FloorInsert;
   projection:'geometry'|'schematic';
   symbol:string;
 }>;
@@ -15,6 +15,8 @@ const edge=(id:string,label:string,group:string,kind:EdgeKind,symbol:string):Cat
   ({id,label,shortLabel:label,group,category:'edge',edgeKind:kind,projection:'geometry',symbol});
 const insert=(id:string,label:string,group:string,value:DoorInsert,symbol:string):CatalogPiece=>
   ({id,label,shortLabel:label,group,category:'insert',insert:value,projection:'schematic',symbol});
+const floorInsertPiece=(id:string,label:string,shape:TileShape,insert:FloorInsert,symbol:string):CatalogPiece=>
+  ({id,label,shortLabel:label,group:'BÖDEN / DECKEN',category:'floor-insert',shape,floorInsert:insert,projection:'geometry',symbol});
 export const CATALOG:readonly CatalogPiece[]=[
   tile('foundation-square','Fundament · Quadrat','FUNDAMENTE','square','foundation','square'),
   tile('foundation-triangle','Fundament · Dreieck','FUNDAMENTE','triangle','foundation','triangle'),
@@ -24,6 +26,8 @@ export const CATALOG:readonly CatalogPiece[]=[
   tile('floor-triangle','Boden · Dreieck','BÖDEN / DECKEN','triangle','floor','triangle'),
   tile('floor-frame','Bodenrahmen','BÖDEN / DECKEN','square','floor-frame','frame'),
   tile('floor-triangle-frame','Dreieck-Bodenrahmen','BÖDEN / DECKEN','triangle','floor-frame','triangle-frame'),
+  floorInsertPiece('ladder-hatch','Leiterklappe · Quadrat','square','ladder-hatch','hatch'),
+  floorInsertPiece('triangle-ladder-hatch','Leiterklappe · Dreieck','triangle','triangle-ladder-hatch','triangle-hatch'),
   edge('wall','Wand','WÄNDE / ÖFFNUNGEN','wall','wall'),
   edge('doorway','Türrahmen','WÄNDE / ÖFFNUNGEN','doorway','door'),
   edge('window','Fensteröffnung','WÄNDE / ÖFFNUNGEN','window','window'),
@@ -39,7 +43,7 @@ export const CATALOG:readonly CatalogPiece[]=[
   insert('wood-door','Holztür','TÜREN / EINBAUTEN','wood-door','door'),
   insert('sheet-metal-door','Metalltür','TÜREN / EINBAUTEN','sheet-metal-door','door'),
   insert('armored-door','Gepanzerte Tür','TÜREN / EINBAUTEN','armored-door','door'),
-  insert('garage-door','Garagentor','TÜREN / EINBAUTEN','garage-door','garage'),
+  insert('garage-door','Garagentor · Wandrahmen','WÄNDE / ÖFFNUNGEN','garage-door','garage'),
   insert('double-sheet-metal-door','Doppeltür Metall','TÜREN / EINBAUTEN','double-sheet-metal-door','double'),
   insert('double-armored-door','Doppeltür HQM','TÜREN / EINBAUTEN','double-armored-door','double'),
 ];

@@ -9,7 +9,7 @@ import { Activity, ArrowDown, ArrowUp, Check, ChevronRight, Database, Download,
 import { useEditor } from '../store/useEditor.ts';
 import { type Point, type Polygon, type TileShape } from '../core/geometry.ts';
 import { DOOR_INSERTS, REFERENCE_MAX_HP,
-  type BuildingTile, type BuildingEdge, type EdgeKind, type MaterialGrade, type SoftSide, type BuildingKind, type DoorInsert } from '../core/blueprint.ts';
+  type BuildingTile, type BuildingEdge, type EdgeKind, type MaterialGrade, type SoftSide, type BuildingKind, type DoorInsert, type FloorInsert } from '../core/blueprint.ts';
 import { findEdgeAt, findEdgeRecord, findTileAt, nearSlot, slotsFor, stats, tilesOnFloor,
   MATERIAL_COLORS, MATERIAL_NAMES, WALL_KIND_NAMES, TILE_KIND_NAMES, DOOR_NAMES,
   type EdgeTarget } from '../core/editor.ts';
@@ -40,7 +40,7 @@ function ContextEditor({menu,onClose,onNotice,activePiece}:{menu:ContextMenu;onC
  const wall=useEditor(s=>s.wall),remove=useEditor(s=>s.eraseTarget);
  const grade=useEditor(s=>s.updateGrade),stability=useEditor(s=>s.updateStability),health=useEditor(s=>s.updateHealth);
  const soft=useEditor(s=>s.updateSoftSide),kind=useEditor(s=>s.updateTileKind);
- const insert=useEditor(s=>s.updateInsert),elevation=useEditor(s=>s.updateElevation);
+ const insert=useEditor(s=>s.updateInsert),elevation=useEditor(s=>s.updateElevation),updateFloorInsert=useEditor(s=>s.updateFloorInsert);
  const [relative,setRelative]=useState(0);
  const record=menu.kind==='tile'?doc.tiles.find(t=>t.id===menu.tileId):findEdgeRecord(doc,menu.target);
  const isTile=menu.kind==='tile';
@@ -99,6 +99,11 @@ function ContextEditor({menu,onClose,onNotice,activePiece}:{menu:ContextMenu;onC
     <select value={record.softSide??'unknown'} onChange={e=>change(()=>soft(e.target.value as SoftSide))}>
       {(isTile?['up','down','unknown']:['left','right','unknown']).map(v=><option key={v} value={v}>{v==='left'?'Linke Seite A→B':v==='right'?'Rechte Seite A→B':v==='up'?'Oben':v==='down'?'Unten':'Unbekannt'}</option>)}
     </select>
+    {tile?.kind==='floor-frame'&&<><label className="field-label">Bodenrahmen-Einbau</label>
+      <select value={tile.floorInsert??'none'} onChange={e=>change(()=>updateFloorInsert(e.target.value as FloorInsert))}>
+       <option value="none">Kein Einbau / offen</option>
+       {tile.shape==='square'?<option value="ladder-hatch">Leiterklappe (Quadrat)</option>:<option value="triangle-ladder-hatch">Dreieck-Leiterklappe</option>}
+      </select><p className="context-help">Die Klappe ist ein eigener Einbau im Bodenrahmen; Fundament- und Bodenrahmenmaterial bleiben erhalten.</p></>}
     {edge&&<><label className="field-label">Tür / Einbau</label><select value={edge.insert??'none'} onChange={e=>change(()=>insert(e.target.value as DoorInsert))}>
       {DOOR_INSERTS.map(k=><option key={k} value={k}>{DOOR_NAMES[k]}</option>)}
     </select><p className="context-help">Einbau- und Rahmentyp müssen für eine vollständige Rust-Prüfung später zusammenpassen.</p></>}
@@ -154,6 +159,17 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
   if(skip.current){skip.current=false;return;}
   const at=world();if(!at)return;
   const q=screen();
+  if(activePiece?.category==='floor-insert'&&activePiece.floorInsert){
+    const target=findTileAt(doc,floor,at);
+    if(!target){notify('Bitte zuerst einen Bodenrahmen auswählen.');return;}
+    if(target.kind!=='floor-frame'||target.shape!==activePiece.shape){
+      notify(`Für ${activePiece.label} wird ein ${activePiece.shape==='triangle'?'Dreieck-':''}Bodenrahmen benötigt.`);return;
+    }
+    if(useEditor.getState().placeFloorInsert(target.id,activePiece.floorInsert)){
+      notify(`${activePiece.label} im Bodenrahmen eingesetzt.`);onApplied();
+    }else notify('Die Leiterklappe ist bereits an dieser Stelle eingesetzt.');
+    setMenu(null);return;
+  }
   const near=findEdgeAt(doc,floor,at,Math.min(17/camera.scale,23));
   if(near){
     if(activePiece?.category==='edge'&&activePiece.edgeKind){useEditor.getState().placeCatalogEdge(near,activePiece.edgeKind);onApplied();}
@@ -197,13 +213,21 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
        return <Group key={t.id}>
          <Line points={points(t.polygon)} closed fill={MATERIAL_COLORS[t.grade]} opacity={.78} stroke={selectedTile?'#f7c78c':'#ae9c87'} strokeWidth={(selectedTile?4:2)/camera.scale}/>
          <Line points={points(t.polygon)} closed dash={[3,6]} stroke="#e3c7a3" opacity={.18} strokeWidth={.7/camera.scale}/>
+         {t.kind==='floor-frame'&&<Line points={points(t.polygon.map(p=>({x:c.x+(p.x-c.x)*.82,y:c.y+(p.y-c.y)*.82})))} closed
+           fill={t.floorInsert&&t.floorInsert!=='none'?'#576a6c':'#131d20'} opacity={.96} stroke={t.floorInsert&&t.floorInsert!=='none'?'#e9994d':'#cebea9'} strokeWidth={2/camera.scale}/>}
+         {t.kind==='floor-frame'&&t.floorInsert&&t.floorInsert!=='none'&&<>
+           <Line points={[c.x-17,c.y-15,c.x+17,c.y+15]} stroke="#f7c990" strokeWidth={2/camera.scale}/>
+           {[-12,-4,4,12].map(n=><Line key={n} points={[c.x+n-7,c.y-17,c.x+n+7,c.y-2]} stroke="#afc2bf" strokeWidth={1.5/camera.scale}/>)}
+           <KonvaText x={c.x-48} y={c.y+21} width={96} align="center" text="LEITERKLAPPE" fontSize={8} fontStyle="bold" fill="#f3bc79"/>
+         </>}
          <KonvaText x={c.x-34} y={c.y-18} width={68} align="center" text={heightText(t.elevation)} fontSize={12} fontStyle="bold" fill="#f7ddba"/>
          <KonvaText x={c.x-28} y={c.y+3} width={56} align="center" text={t.stability.percent===null?'STB ?':`STB ${t.stability.percent}%`} fontSize={9} fill="#dbcbb6"/>
        </Group>;
      })}
      {doc.edges.filter(e=>e.floor===floor).map(e=><Group key={e.id}>
        <Line points={[e.a.x,e.a.y,e.b.x,e.b.y]} stroke="#0a0a09" strokeWidth={11/camera.scale} lineCap="round"/>
-       <Line points={[e.a.x,e.a.y,e.b.x,e.b.y]} stroke={e.kind==='doorway'?'#e58d58':e.kind==='window'?'#8ea0a3':'#d1b793'} strokeWidth={5/camera.scale} dash={e.kind==='doorway'?[7,5]:e.kind==='window'?[3,4]:undefined}/>
+       <Line points={[e.a.x,e.a.y,e.b.x,e.b.y]} stroke={e.insert==='garage-door'?'#ec9d46':e.kind==='doorway'?'#e58d58':e.kind==='window'?'#8ea0a3':'#d1b793'} strokeWidth={(e.insert==='garage-door'?8:5)/camera.scale} dash={e.insert==='garage-door'?[6,2]:e.kind==='doorway'?[7,5]:e.kind==='window'?[3,4]:undefined}/>
+       {e.insert==='garage-door'&&<KonvaText x={(e.a.x+e.b.x)/2-40} y={(e.a.y+e.b.y)/2-16} width={80} align="center" text="GARAGENTOR" fontSize={9} fontStyle="bold" fill="#ffc080"/>}
      </Group>)}
      {(tool==='square'||tool==='triangle')&&slots.map((s,i)=><Line key={'s'+i} points={points(s.polygon)} closed stroke="#ad946f" opacity={.3} dash={[6,5]} strokeWidth={1/camera.scale}/>)}
      {(slot||rootPreview)&&<Line points={points(slot?.polygon??rootPreview!)} closed fill="#dd8a4b" opacity={.23} stroke="#f9a062" dash={[6,3]} strokeWidth={2/camera.scale}/>}
@@ -280,7 +304,7 @@ function App(){
  return <div className="app-shell">
   <header className="hero-topbar">
    <div className="hero-brand"><div className="hero-mark"><Hammer size={32}/></div><div><strong>GHOSTFRAME <span>STUDIO</span></strong><small>RUST BASE PLANNER / STABILITY INTELLIGENCE / RAID ANALYSIS</small></div></div>
-   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.6.2</span></div>
+   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.6.3</span></div>
    <div className="top-actions"><span className="save-state"><Save size={13}/>{saved}</span>
     <button className="icon-button" onClick={undo} disabled={!past.length} title="Rückgängig"><Undo2 size={17}/></button>
     <button className="icon-button" onClick={redo} disabled={!future.length} title="Wiederholen"><Redo2 size={17}/></button>

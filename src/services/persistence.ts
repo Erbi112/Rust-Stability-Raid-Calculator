@@ -49,6 +49,7 @@ function validPolygonGeometry(poly:readonly {x:number;y:number}[],shape:'square'
 }
 const GRADES=['twig','wood','stone','metal','armored','unknown'];
 const KINDS=['wall','doorway','window','wall-frame','half-wall','low-wall','unknown'];
+const FLOOR_INSERTS=['none','ladder-hatch','triangle-ladder-hatch'];
 const INSERTS=['none','wood-door','sheet-metal-door','armored-door','garage-door','double-sheet-metal-door','double-armored-door'];
 const SIDES=['left','right','up','down','unknown'];
 const TILE_KINDS=['foundation','floor','floor-frame','roof','stairs-u','stairs-l','stairs-spiral','stairs-spiral-triangle','ramp','foundation-steps','unknown'];
@@ -64,6 +65,11 @@ function isExtended(x:Record<string,unknown>,edge:boolean):boolean{
   if(edge){
     if(x.insert!==undefined&&!INSERTS.includes(String(x.insert)))return false;
   }else{
+    if(x.floorInsert!==undefined){
+      if(!FLOOR_INSERTS.includes(String(x.floorInsert))||x.kind!=='floor-frame')return false;
+      if(x.floorInsert==='ladder-hatch'&&x.shape!=='square')return false;
+      if(x.floorInsert==='triangle-ladder-hatch'&&x.shape!=='triangle')return false;
+    }
     if(x.rotation!==undefined&&(!isNumber(x.rotation)||x.rotation<0||x.rotation>=360))return false;
     if(x.elevation!==undefined&&(!isNumber(x.elevation)||x.elevation< -100||x.elevation>100||Math.abs(x.elevation*4-Math.round(x.elevation*4))>1e-6))return false;
   }

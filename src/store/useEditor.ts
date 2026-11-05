@@ -4,8 +4,8 @@ import { createFloorFromBelow, proposedElevation, repairMisplacedUpperTiles } fr
 import type { BlueprintDocument } from '../core/blueprint.ts';
 import type { Point, TileShape } from '../core/geometry.ts';
 import { attachTo, exampleProject, exampleBunkerProject, newProject, placeRoot, removeEntity, updateSelected, upsertWall,
-  findEdgeRecord, type EdgeTarget, type EditorTool, type SelectedEntity } from '../core/editor.ts';
-import type { MaterialGrade, EdgeKind, SoftSide, BuildingKind, DoorInsert, HealthState } from '../core/blueprint.ts';
+  findEdgeRecord, installFloorInsert, type EdgeTarget, type EditorTool, type SelectedEntity } from '../core/editor.ts';
+import type { MaterialGrade, EdgeKind, SoftSide, BuildingKind, DoorInsert, HealthState, FloorInsert } from '../core/blueprint.ts';
 
 const MAX_HISTORY=75;
 interface EditorStore {
@@ -30,6 +30,8 @@ interface EditorStore {
   attach:(sourceId:string,index:number,shape:TileShape,relativeHeight?:number,kind?:BuildingKind)=>boolean;
   wall:(target:EdgeTarget,kind:EdgeKind)=>void;
   placeCatalogEdge:(target:EdgeTarget,kind:EdgeKind,insert?:DoorInsert)=>void;
+  placeFloorInsert:(tileId:string,insert:FloorInsert)=>boolean;
+  updateFloorInsert:(insert:FloorInsert)=>void;
   erase:()=>void;
   eraseTarget:(target:SelectedEntity)=>void;
   updateGrade:(grade:MaterialGrade)=>void;
@@ -76,6 +78,16 @@ export const useEditor=create<EditorStore>((set,get)=>({
     const record=findEdgeRecord(staged,target);
     const next=insert&&record?updateSelected(staged,{type:'edge',id:record.id},{insert}):staged;
     return {...commit(s,next),selected:record?{type:'edge' as const,id:record.id}:null,tool:'inspect' as const};
+  }),
+  placeFloorInsert:(tileId,insert)=>{
+    const s=get(),next=installFloorInsert(s.doc,tileId,insert);
+    if(next===s.doc)return false;
+    set({...commit(s,next),selected:{type:'tile',id:tileId},tool:'inspect'});
+    return true;
+  },
+  updateFloorInsert:(insert)=>set(s=>{
+    if(s.selected?.type!=='tile')return {};
+    return commit(s,installFloorInsert(s.doc,s.selected.id,insert));
   }),
   erase:()=>set(s=>({...commit(s,removeEntity(s.doc,s.selected)),selected:null})),
   eraseTarget:(target)=>set(s=>({...commit(s,removeEntity(s.doc,target)),selected:null})),

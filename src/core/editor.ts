@@ -1,5 +1,5 @@
 import { attachPolygon, availableSlots, edgeAt, initialPolygon, overlapsArea, polygonArea, sameEdge, samePoint, type Point, type Tile, type TileShape, type Polygon } from './geometry.ts';
-import { createEmptyBlueprint, unmeasuredStability, type BlueprintDocument, type BuildingEdge, type BuildingTile, type EdgeKind, type MaterialGrade, type BuildingKind, type SoftSide, type DoorInsert, makeHealth } from './blueprint.ts';
+import { createEmptyBlueprint, unmeasuredStability, type BlueprintDocument, type BuildingEdge, type BuildingTile, type EdgeKind, type MaterialGrade, type BuildingKind, type SoftSide, type DoorInsert, type FloorInsert, makeHealth } from './blueprint.ts';
 
 export type EditorTool = 'inspect' | 'square' | 'triangle' | 'wall' | 'doorway' | 'window' | 'erase';
 export type SelectedEntity = { type: 'tile' | 'edge'; id: string } | null;
@@ -120,6 +120,22 @@ export function removeEntity(doc:BlueprintDocument,selection:SelectedEntity):Blu
   })));
   return {...doc,tiles,edges};
 }
+/** Install an actual ladder hatch only into a matching floor frame. Invalid actions are no-ops. */
+export function installFloorInsert(doc:BlueprintDocument,tileId:string,value:FloorInsert):BlueprintDocument {
+  const tile=doc.tiles.find(t=>t.id===tileId);
+  if(!tile||tile.kind!=='floor-frame')return doc;
+  if(value==='ladder-hatch'&&tile.shape!=='square')return doc;
+  if(value==='triangle-ladder-hatch'&&tile.shape!=='triangle')return doc;
+  if((tile.floorInsert??'none')===value)return doc;
+  return {...doc,tiles:doc.tiles.map(t=>t.id===tileId?{...t,floorInsert:value}:t)};
+}
+/** Match special wall-frame inserts to structural openings. */
+export function installGarageDoor(doc:BlueprintDocument,edgeId:string):BlueprintDocument {
+  const edge=doc.edges.find(e=>e.id===edgeId);
+  if(!edge||edge.kind!=='wall-frame')return doc;
+  if(edge.insert==='garage-door')return doc;
+  return {...doc,edges:doc.edges.map(e=>e.id===edgeId?{...e,insert:'garage-door'}:e)};
+}
 export type EntityPatch = {grade?:MaterialGrade;stability?:number|null;health?:{current:number|null;max:number|null};softSide?:SoftSide;tileKind?:BuildingKind;edgeKind?:EdgeKind;insert?:DoorInsert;rotation?:number;elevation?:number};
 export function updateSelected(doc:BlueprintDocument,selection:SelectedEntity,patch:EntityPatch):BlueprintDocument {
   if(!selection)return doc;
@@ -131,7 +147,7 @@ export function updateSelected(doc:BlueprintDocument,selection:SelectedEntity,pa
   });
   if(selection.type==='tile')return {...doc,tiles:doc.tiles.map(t=>t.id===selection.id?{
     ...applyCommon(t),
-    ...(patch.tileKind?{kind:patch.tileKind}:{}),
+    ...(patch.tileKind?{kind:patch.tileKind,floorInsert:patch.tileKind==='floor-frame'?t.floorInsert:undefined}:{}),
     ...(patch.rotation!==undefined?{rotation:patch.rotation}:{}),
     ...(patch.elevation!==undefined?{elevation:patch.elevation}:{}),
   }:t)};

@@ -10,7 +10,7 @@ export function StructureIcon({piece}:{piece:CatalogPiece}){
  const stair=id.includes('stairs')||id.includes('steps');
  const roof=id.startsWith('roof');
  const ramp=id==='ramp';
- const metallic=id.includes('metal')||id.includes('armored')||id.includes('garage');
+ const metallic=id.includes('metal')||id.includes('armored')||id.includes('garage')||id.includes('hatch');
  const top=metallic?'#a3bbc2':'#c8c1b3';
  const front=metallic?'#546a74':'#86857d';
  const side=metallic?'#3b4c58':'#4a5351';
@@ -18,10 +18,16 @@ export function StructureIcon({piece}:{piece:CatalogPiece}){
  return <svg viewBox="0 0 84 72" className="piece-glyph" role="img" aria-label={piece.label} fill="none">
  <defs><linearGradient id={g} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#e5decf"/><stop offset=".43" stopColor={top}/><stop offset="1" stopColor={front}/></linearGradient></defs>
  <ellipse cx="42" cy="65" rx="34" ry="4" fill="#050c0e" opacity=".5"/>
- {opening?<g>
+ {id.includes('hatch')?<g>
+  <path d={triangle?'M42 8 76 55 9 55Z':'M9 21 47 8 77 24 38 39Z'} fill="#607783" stroke="#e7d2b0" strokeWidth="3"/>
+  <path d={triangle?'M42 18 63 50 22 50Z':'M21 23 46 16 65 25 38 33Z'} fill="#182329" stroke="#d79b57" strokeWidth="2.2"/>
+  <path d="M20 55 34 60 66 43M26 50 41 56M34 47 49 53M42 44 57 50" stroke="#c6cfc8" strokeWidth="2.7"/>
+  <circle cx="42" cy="28" r="3" fill="#efba75"/>
+ </g>:opening?<g>
   <path d="M13 14 66 9 72 17V60L18 66 13 57Z" fill={side} stroke="#e1cdb0" strokeWidth="1.7"/>
   <path d="M17 17 65 12V56L17 61Z" fill={'url(#'+g+')'} stroke="#dacbb3" strokeWidth="1.7"/>
   {door||framed?<><path d="M28 28 55 25V58L28 61Z" fill={id==='doorway'||id==='wall-frame'?'#162027':'#856347'} stroke="#f3d6af" strokeWidth="2.6"/><path d="M33 35 51 33M33 42 51 40M33 49 51 47" stroke="#343d3e" strokeOpacity=".55" strokeWidth="1.2"/>{id.includes('double')?<path d="M42 27V58" stroke="#293339" strokeWidth="2"/>:null}</>:null}
+  {id==='garage-door'&&<><path d="M28 28 55 25V58L28 61Z" fill="#6d848e" stroke="#ead0ac" strokeWidth="1.7"/>{[31,37,43,49,55].map(y=><path key={y} d={`M30 ${y} 53 ${y-3}`} stroke="#2b4048" strokeWidth="2"/>)}</>}
   {windowed?<><path d="M25 28 57 25V44L25 48Z" fill="#34515b" stroke="#e9e1cb" strokeWidth="2.5"/><path d="M41 26V47M25 37 57 34" stroke="#aac4c7" strokeWidth="1.5"/></>:null}
   {!door&&!windowed&&!framed?<><path d="M19 28 64 23M19 42 64 37M19 54 64 49" stroke="#4e5756" strokeWidth="1.2"/>{id.includes('half')||id.includes('low')?<path d={id.includes('half')?'M16 14 66 9V31L16 36Z':'M16 14 66 9V42L16 47Z'} fill="#152026" opacity=".86"/>:null}</>:null}
   <g fill="#f0d4ad"><circle cx="21" cy="22" r="1.5"/><circle cx="60" cy="17" r="1.5"/><circle cx="21" cy="56" r="1.5"/><circle cx="60" cy="53" r="1.5"/></g>

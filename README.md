@@ -83,3 +83,7 @@ See [ROADMAP.md](ROADMAP.md) and [v0.5 release notes](docs/RELEASE-v0.5.md).
 ## Multi-floor building (v0.6.2)
 
 F1 starts one full wall-height above F0, including any local foundation offset. On F1+, choose **Untergeschoss als Decke übernehmen** to copy the previous floor footprint into true floor plates with correct elevations. Previously saved plans with F1 at 0 H show an explicit **ältere Etagenhöhen korrigieren** action; this action is undoable. See [release notes](docs/RELEASE-v0.6.2.md).
+
+## v0.6.3 – Leiterklappe und Garagentor
+
+Im Baukatalog sind Leiterklappen für quadratische und dreieckige Bodenrahmen sowie das Garagentor für Wandrahmen auswählbar. 2D/3D und JSON-Persistenz bilden Einbauten separat vom Tragwerk ab. [Release-Details](docs/RELEASE-v0.6.3.md).

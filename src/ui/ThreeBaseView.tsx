@@ -81,11 +81,35 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
     const thickness=tile.kind==='foundation'?.40:.17;
     const geometry=new THREE.ExtrudeGeometry(shape,{depth:thickness,bevelEnabled:true,bevelSegments:1,steps:1,bevelSize:.025,bevelThickness:.015});
     geometry.rotateX(Math.PI/2); // +planY maps to +worldZ
-    const solid=tile.kind!=='floor-frame';
-    const mat=meshMaterial(tile.grade,!solid);
-    const floorMesh=new THREE.Mesh(geometry,mat);
-    floorMesh.position.y=tileY(tile); // upper face at the matching wall base
-    floorMesh.castShadow=true;floorMesh.receiveShadow=true;group.add(floorMesh);
+    if(tile.kind==='floor-frame'){
+      // Real open socket: perimeter beams, never a semi-transparent solid floor.
+      for(let i=0;i<tile.polygon.length;i++){
+        const [a,b]=edgeAt(tile.polygon,i),aw=worldXY(a),bw=worldXY(b);
+        const dx=bw.x-aw.x,dz=bw.z-aw.z;
+        addBox(group,Math.hypot(dx,dz)+.09,.20,.18,COLORS[tile.grade],(aw.x+bw.x)/2,tileY(tile)-.1,(aw.z+bw.z)/2,-Math.atan2(dz,dx));
+      }
+      if(tile.floorInsert&&tile.floorInsert!=='none'){
+        const c={x:tile.polygon.reduce((s,p)=>s+p.x,0)/tile.polygon.length,z:tile.polygon.reduce((s,p)=>s+p.y,0)/tile.polygon.length};
+        const plate=new THREE.Shape();tile.polygon.forEach((p,i)=>{
+          const pp=worldXY({x:c.x+(p.x-c.x)*.79,y:c.z+(p.y-c.z)*.79});
+          if(i===0)plate.moveTo(pp.x,pp.z);else plate.lineTo(pp.x,pp.z);
+        });plate.closePath();
+        const hatch=new THREE.ExtrudeGeometry(plate,{depth:.08,bevelEnabled:false});
+        hatch.rotateX(Math.PI/2);
+        const panel=new THREE.Mesh(hatch,new THREE.MeshStandardMaterial({color:0x65747b,metalness:.63,roughness:.57,side:THREE.DoubleSide}));
+        panel.position.y=tileY(tile)-.06;panel.castShadow=true;group.add(panel);
+        const wc=worldXY({x:c.x,y:c.z});
+        // Vertical ladder rails and rungs are visible from below when inspecting floors.
+        for(const x of [-.28,.28])addBox(group,.065,1.55,.07,0x8c9693,wc.x+x,tileY(tile)-.83,wc.z+.12);
+        for(let n=0;n<5;n++)addBox(group,.63,.045,.07,0xaeb3a5,wc.x,tileY(tile)-.25-n*.28,wc.z+.12);
+      }
+      geometry.dispose();
+    }else{
+      const floorMesh=new THREE.Mesh(geometry,meshMaterial(tile.grade));
+      floorMesh.position.y=tileY(tile); // upper face at matching building height
+      floorMesh.castShadow=true;floorMesh.receiveShadow=true;group.add(floorMesh);
+    }
+
     // Fine metallic perimeter to make the precise polygons legible at any camera angle.
     const pts=tile.polygon.map(p=>{const q=worldXY(p);return new THREE.Vector3(q.x,tileY(tile)+.018,q.z);});pts.push(pts[0]!.clone());
     group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xdbc6aa,transparent:true,opacity:.67})));
@@ -109,11 +133,17 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
     const height=edge.kind==='half-wall'?1.5:edge.kind==='low-wall'?.72:WALL_HEIGHT;
     if(edge.kind==='wall'||edge.kind==='half-wall'||edge.kind==='low-wall')bar(span,height,.19,0,height/2);
     else if(edge.kind==='doorway'||edge.kind==='wall-frame'){
-      const gap=edge.kind==='doorway'?span*.52:span*.67;
+      const gap=edge.insert==='garage-door'?span*.87:edge.kind==='doorway'?span*.52:span*.67;
       const side=Math.max(.16,(span-gap)/2);
       bar(side,height,.19,-span/2+side/2,height/2);bar(side,height,.19,span/2-side/2,height/2);
       bar(gap,.4,.19,0,height-.2);
-      if(edge.insert&&edge.insert!=='none')addBox(item,gap-.035,height-.42,.085,COLORS[edge.grade]===COLORS.stone?0x976a43:0xa5744a,0,(height-.42)/2,0,0,.97);
+      if(edge.insert==='garage-door'){
+        addBox(item,gap-.035,height-.44,.10,0x626b72,0,(height-.44)/2);
+        // Visible horizontal rolled-metal segments, distinct from single and double doors.
+        for(let n=1;n<12;n++)addBox(item,gap-.07,.024,.133,n%2?0x9ca1a0:0x3a454b,0,n*(height-.44)/12);
+      }else if(edge.insert&&edge.insert!=='none'){
+        addBox(item,gap-.035,height-.42,.085,COLORS[edge.grade]===COLORS.stone?0x976a43:0xa5744a,0,(height-.42)/2,0,0,.97);
+      }
     }else if(edge.kind==='window'){
       bar(span,1.0,.19,0,.5);bar(span,.50,.19,0,height-.25);
       bar(.23,1.5,.19,-span/2+.115,1.75);bar(.23,1.5,.19,span/2-.115,1.75);
