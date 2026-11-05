@@ -1,0 +1,11 @@
+{
+  "name": "ghostframe-stability-raid-calculator",
+  "version": "0.3.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "description": "GHOSTFRAME modular geometry foundation; M1 React UI follows",
+  "scripts": {
+    "test:core": "node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "engines": { "node": ">=22.16.0" }
+}
