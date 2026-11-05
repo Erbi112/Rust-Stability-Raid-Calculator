@@ -48,6 +48,7 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
   sun.shadow.camera.left=-28;sun.shadow.camera.right=28;sun.shadow.camera.top=28;sun.shadow.camera.bottom=-28;
   scene.add(sun);
   const fill=new THREE.DirectionalLight(0xa9c1ce,1.4);fill.position.set(11,9,-15);scene.add(fill);
+  const minY=Math.min(0,...doc.tiles.map(t=>(t.elevation??t.floor)*WALL_HEIGHT));
   const grid=new THREE.GridHelper(80,80,0x4b554f,0x333c3b);grid.position.y=Math.min(-.46,minY-.46);scene.add(grid);
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(90,90),new THREE.MeshStandardMaterial({color:0x232a26,roughness:1}));
   ground.rotation.x=-Math.PI/2;ground.position.y=Math.min(-.5,minY-.5);ground.receiveShadow=true;scene.add(ground);
