@@ -17,6 +17,17 @@ GHOSTFRAME is an independent browser-based base blueprint editor for the surviva
 
 **Not yet supported:** genuine Rust stability simulation, automatic candidate matching, raid calculations, 3D support, server database. The UI intentionally does not invent these outputs.
 
+## Direkt im Browser ausführen (GitHub Pages)
+
+**Web-App (nach einmaliger Aktivierung von GitHub Pages):**
+https://erbi112.github.io/Rust-Stability-Raid-Calculator/
+
+Der vorhandene Workflow `Test, Build & Publish` prüft bei jedem Push auf `main` zuerst die Tests und den TypeScript-/Vite-Build. Nur wenn diese erfolgreich sind, wird die neue Webversion veröffentlicht. Pull Requests werden geprüft, aber nicht live geschaltet.
+
+**Einmalige Einrichtung durch den Repository-Inhaber:** Öffne [Settings → Pages](https://github.com/Erbi112/Rust-Stability-Raid-Calculator/settings/pages) und wähle unter **Build and deployment → Source** die Option **GitHub Actions**. Danach den Workflow unter **Actions → Test, Build & Publish → Run workflow** einmal ausführen, falls die Veröffentlichung nicht bereits erfolgreich war.
+
+Die GitHub-Pages-Version ist eine rein clientseitige Anwendung: Die Daten werden lokal im Browser (IndexedDB) gespeichert, nicht im GitHub-Repository. Nutze den JSON-Export für Sicherung und Gerätewechsel. Weitere Hinweise: [Deployment-Dokumentation](docs/DEPLOYMENT.md).
+
 ## Run locally
 
 Prerequisites: Node.js 22.16+ and npm.
