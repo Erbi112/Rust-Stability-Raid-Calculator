@@ -8,6 +8,8 @@ import { tileHeight, misplacedUpperTiles } from '../core/levels.ts';
 import { structuralConnectivity, type StructuralStatus } from '../core/stability.ts';
 import { useMemo } from 'react';
 import { useEditor } from '../store/useEditor.ts';
+import {skinTexture} from './skinTextures.ts';
+import type {BuildingSkinId} from '../core/skins.ts';
 
 const UNIT=PLAN_UNIT_METERS;
 const WALL_HEIGHT=WALL_HEIGHT_METERS;
@@ -106,7 +108,7 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
     texture.anisotropy=Math.min(renderer.capabilities.getMaxAnisotropy(),8);
     textures.set(grade,texture);return texture;
   };
-  const meshMaterial=(grade:MaterialGrade,transparent=false)=>new THREE.MeshStandardMaterial({
+  const meshMaterial=(grade:MaterialGrade,transparent=false,skinId?:BuildingSkinId)=>new THREE.MeshStandardMaterial({
     color:0xffffff,map:textureFor(grade),roughness:grade==='metal'||grade==='armored'?.59:.94,
     metalness:grade==='metal'||grade==='armored'?.25:0,transparent,opacity:transparent?.20:1,
     side:THREE.DoubleSide
@@ -176,7 +178,7 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
     const centerX=(a.x+b.x)/2,centerZ=(a.z+b.z)/2;
     const item=new THREE.Group();item.position.set(centerX,base,centerZ);item.rotation.y=angle;group.add(item);
     const color=structureTint(edge.id)??COLORS[edge.grade];
-    const bar=(w:number,h:number,depth:number,x:number,y:number)=>addBox(item,w,h,depth,color,x,y,0);
+    const bar=(w:number,h:number,depth:number,x:number,y:number)=>addBox(item,w,h,depth,color,x,y,0,0,1,edge.skinId);
     const height=edge.kind==='half-wall'?1.5:edge.kind==='low-wall'?.72:WALL_HEIGHT;
     if(edge.kind==='wall'||edge.kind==='half-wall'||edge.kind==='low-wall')bar(span,height,.19,0,height/2);
     else if(edge.kind==='doorway'||edge.kind==='wall-frame'){

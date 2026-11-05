@@ -85,3 +85,17 @@ F1 starts one full wall-height above F0, including any local foundation offset. 
 The Stability tab now offers a deterministic, transparent **geometric connectivity model** with 2D and 3D overlays and a non-destructive *what-if removal* analysis for selected building parts. It treats recorded F0 foundations as model anchors, adjacent pieces at equal elevation as possible links, and entered walls/frames as potential vertical support for floors one level above. This is **not** the Rust stability formula; unknown connections are not automatically collapsed, and measured hammer stability values are never replaced with invented percentages.
 
 See [v0.7 release notes](docs/RELEASE-v0.7.md) for behavior and limitations.
+
+## Blueprint Intelligence v0.8
+
+The Blueprint Library stores multiple validated JSON blueprints locally in IndexedDB. It supports names, provenance, solo/duo/trio/squad/clan classification, base roles, explicit bunker mechanisms, biome and 18 yes/no/unknown features, including external TCs, widegaps, honeycomb, shooting floors, offset foundations, garage doors and ladder hatches. Combine search with quality, materials, level counts and optional reference costs. Missing feature data never means **no**. The two included blueprints are internally created demos, not copied internet designs.
+
+The optional structural similarity score is **not a probability**. It compares only a coarse signature (shape counts, floor counts, grade mix and known height transitions) and cannot recover a hidden interior uniquely.
+
+### Building skins
+
+The selector lists the eight official building skin families from the [Facepunch store](https://rust.facepunch.com/store/) by grade: Legacy Wood, Adobe, Brick, Brutalist, Jungle, Crypt, Shipping Container and Space Station. Previews are **original procedural approximations, not licensed Rust textures**; no pixel-exact appearance or in-game material equivalence is claimed. Skins do not change this project's reference raid-cost values.
+
+The left construction sidebar deliberately scrolls **vertically only**.
+
+See [v0.8 release notes](docs/RELEASE-v0.8.md).

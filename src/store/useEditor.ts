@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { produce } from 'immer';
 import { createFloorFromBelow, proposedElevation, repairMisplacedUpperTiles } from '../core/levels.ts';
 import type { BlueprintDocument } from '../core/blueprint.ts';
+import type { BuildingSkinId } from '../core/skins.ts';
+import type { BlueprintMetadata } from '../core/library.ts';
 import type { Point, TileShape } from '../core/geometry.ts';
 import { attachTo, exampleProject, exampleBunkerProject, newProject, placeRoot, removeEntity, updateSelected, upsertWall,
   findEdgeRecord, installFloorInsert, type EdgeTarget, type EditorTool, type SelectedEntity } from '../core/editor.ts';
@@ -35,6 +37,8 @@ interface EditorStore {
   erase:()=>void;
   eraseTarget:(target:SelectedEntity)=>void;
   updateGrade:(grade:MaterialGrade)=>void;
+  updateSkin:(skinId:BuildingSkinId)=>void;
+  updateLibraryMetadata:(patch:Partial<BlueprintMetadata>)=>void;
   updateStability:(stability:number|null)=>void;
   updateHealth:(health:HealthState)=>void;
   updateSoftSide:(side:SoftSide)=>void;
@@ -92,6 +96,8 @@ export const useEditor=create<EditorStore>((set,get)=>({
   erase:()=>set(s=>({...commit(s,removeEntity(s.doc,s.selected)),selected:null})),
   eraseTarget:(target)=>set(s=>({...commit(s,removeEntity(s.doc,target)),selected:null})),
   updateGrade:(grade)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{grade}))),
+  updateSkin:(skinId)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{skinId}))),
+  updateLibraryMetadata:(patch)=>set(s=>commit(s,produce(s.doc,d=>{d.library={group:'unknown',role:'unknown',bunker:'unknown',biome:'unknown',features:{},tags:[],...d.library,...patch};}))),
   updateStability:(stability)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{stability}))),
   updateHealth:(health)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{health}))),
   updateSoftSide:(softSide)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{softSide}))),

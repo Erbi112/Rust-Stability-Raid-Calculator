@@ -119,3 +119,16 @@ Die Arbeit erfolgt in **größeren integrierten Release-Blöcken**. Pro Block we
 - Geometrischer Fundamentpfad-Solver, höhenabhängige 3D-Kopplungen, 2D/3D-Overlays und Was-wäre-wenn-Entfernung umgesetzt.
 - Prozentgenaue Rust-Stabilitätsformel **nicht** implementiert: explizit als unkalibriertes Strukturmodell dokumentiert.
 - Weiter: Validierte Rust-Ingame-Referenzfälle, gespeicherte Beobachtungen, Mehrdeutigkeitsmodell und probabilistisches Blueprint-Matching erst nach Kalibrierung.
+
+
+### v0.8 · Blueprint Intelligence (large integrated release)
+- [x] Searchable locally persisted Blueprint Library with explicit creator/source context
+- [x] Solo/Duo/Trio/Squad/Clan, role, biome, bunker and external-TC metadata
+- [x] 18 three-state feature flags (yes/no/unknown) + quality, tier, height and cost filters
+- [x] Combined filter engine and honest coarse structural similarity ranking
+- [x] Import, save, re-open and JSON export of user-owned blueprints
+- [x] All eight official building skin **names** and grade restrictions + procedural previews
+- [x] Remove unintended horizontal scrollbar from construction catalog
+- [ ] Licensed game-identical textures (requires suitable usage rights; NOT implied by procedure preview)
+- [ ] Mass acquisition of external base blueprints with creator permissions (not scraped without rights)
+- [ ] Rust-calibrated automatic hidden-layout probability estimates

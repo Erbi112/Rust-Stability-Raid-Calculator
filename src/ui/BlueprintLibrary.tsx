@@ -1,0 +1,110 @@
+import {useEffect,useMemo,useRef,useState} from 'react';
+import { BookOpen, Database, Download, FilePlus, FolderOpen, RefreshCw, Search, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import type {BlueprintDocument,MaterialGrade} from '../core/blueprint.ts';
+import {BASE_ROLES,BIOMES,BOOLS,BUNKER_TYPES,FEATURE_KEYS,FEATURE_LABELS,GROUPS,
+ blueprintsMatchFilter,compareLibraryBase,defaultFilter,defaultMetadata,metadataOf,
+ type BlueprintMetadata,type FeatureKey,type LibraryEntry,type LibraryFilter,type KnownBoolean} from '../core/library.ts';
+import {exampleBunkerProject,exampleProject} from '../core/editor.ts';
+import {importToLibrary,listLibraryDocuments,removeLibraryDocument,saveLibraryDocument} from '../services/library-storage.ts';
+import {exportProject} from '../services/persistence.ts';
+import {useEditor} from '../store/useEditor.ts';
+
+const labels:Record<string,string>={
+  unknown:'Unbekannt',all:'Alle',solo:'Solo',duo:'Duo',trio:'Trio',squad:'Squad (4–6)',clan:'Clan (7+)',
+  starter:'Starter',main:'Main Base',bunker:'Bunker',farm:'Farm Base',compound:'Compound',external:'External-TC-Base',raid:'Raid Base',trap:'Trap Base',water:'Water Base',cave:'Cave Base',
+  none:'Kein Bunker',stability:'Stability-Bunker',roof:'Roof-Bunker',offset:'Offset-Bunker','pixel-gap':'Pixel Gap',suicide:'Suicide-Bunker',other:'Sonstiges',
+  grassland:'Grasland',desert:'Wüste',snow:'Schnee',forest:'Wald',coast:'Küste',cliff:'Klippe',yes:'Ja',no:'Nein',
+  L0:'L0 · Nur Referenz',L1:'L1 · Kontur',L2:'L2 · Grundriss',L3:'L3 · Geschosse',L4:'L4 · Ingame geprüft',
+  twig:'Twig',wood:'Holz',stone:'Stein',metal:'Metall',armored:'HQM',local:'Lokal',imported:'Importiert',demo:'Demo',
+};
+const text=(key:string)=>labels[key]??key;
+const demoEntries=():LibraryEntry[]=>[
+ {key:'demo-standard',doc:{...exampleProject(),id:'demo-standard',name:'Compact Compound · Demo',library:{...defaultMetadata(),role:'compound',features:{honeycomb:'yes',externalTC:'unknown'}}},origin:'demo',storedAt:'2026-11-05'},
+ {key:'demo-offset',doc:{...exampleBunkerProject(),id:'demo-offset',name:'Foundation Offset · Demo',library:{...defaultMetadata(),bunker:'unknown',features:{offsetFoundations:'yes',stabilityBunker:'unknown'}}},origin:'demo',storedAt:'2026-11-05'}
+];
+type Props={current:BlueprintDocument;onOpen:(doc:BlueprintDocument)=>void;notify:(message:string)=>void};
+function FilterSelect({label,value,values,change}:{label:string;value:string;values:readonly string[];change:(value:string)=>void}){
+ return <label className="library-field"><span>{label}</span><select value={value} onChange={e=>change(e.target.value)}>{values.map(v=><option key={v} value={v}>{text(v)}</option>)}</select></label>
+}
+function OptionalNumber({label,value,change}:{label:string;value:number|null;change:(v:number|null)=>void}){
+ return <label className="library-field"><span>{label}</span><input type="number" min={0} value={value??''} placeholder="Alle" onChange={e=>change(e.target.value===''?null:Number(e.target.value))}/></label>
+}
+export function BlueprintLibrary({current,onOpen,notify}:Props){
+ const [items,setItems]=useState<LibraryEntry[]>([]);
+ const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
+ const [filters,setFilters]=useState<LibraryFilter>(defaultFilter());
+ const [editMeta,setEditMeta]=useState(false),[showAdvanced,setShowAdvanced]=useState(false),[sort,setSort]=useState<'new'|'name'|'similarity'>('new');
+ const [metadata,setMetadata]=useState<BlueprintMetadata>(metadataOf(current));
+ const importInput=useRef<HTMLInputElement>(null);
+ useEffect(()=>{let alive=true;listLibraryDocuments().then(result=>{if(alive)setItems(result)}).catch(e=>notify(e instanceof Error?e.message:'Bibliothek nicht verfügbar')).finally(()=>{if(alive)setLoading(false)});return()=>{alive=false}},[]);
+ useEffect(()=>{setMetadata(metadataOf(current))},[current.id]);
+ const all=useMemo(()=>[...demoEntries(),...items],[items]);
+ const scores=useMemo(()=>compareLibraryBase(current,all),[current,all]);
+ const scoresById=useMemo(()=>new Map(scores.map(s=>[s.key,s.score])),[scores]);
+ const filtered=useMemo(()=>all.filter(x=>blueprintsMatchFilter(x,filters)).sort((a,b)=>sort==='similarity'?(scoresById.get(b.key)??0)-(scoresById.get(a.key)??0):sort==='name'?a.doc.name.localeCompare(b.doc.name):b.storedAt.localeCompare(a.storedAt)),[all,filters,sort,scoresById]);
+ const change=<K extends keyof LibraryFilter>(key:K,value:LibraryFilter[K])=>setFilters(prev=>({...prev,[key]:value}));
+ const changeMeta=<K extends keyof BlueprintMetadata>(key:K,value:BlueprintMetadata[K])=>setMetadata(prev=>({...prev,[key]:value}));
+ const sync=async()=>setItems(await listLibraryDocuments());
+ const saveCurrent=async()=>{
+  if(!current.tiles.length){notify('Bitte zuerst einen Blueprint zeichnen.');return;}
+  setBusy(true);try{useEditor.getState().updateLibraryMetadata(metadata);await saveLibraryDocument({...current,library:metadata},'local');await sync();notify('Blueprint mit seinen Filtermerkmalen lokal gespeichert.');setEditMeta(false);}catch(e){notify(String(e));}finally{setBusy(false)}
+ };
+ const importFile=async(file:File)=>{setBusy(true);try{const item=await importToLibrary(file);await sync();notify(`Blueprint „${item.doc.name}“ in die lokale Bibliothek importiert.`);}catch(e){notify(e instanceof Error?e.message:'Blueprint-Import fehlgeschlagen.');}finally{setBusy(false)}};
+ const remove=async(e:LibraryEntry)=>{if(!confirm(`„${e.doc.name}“ aus der lokalen Bibliothek löschen?`))return;setBusy(true);try{await removeLibraryDocument(e.key);await sync();notify('Bibliothekseintrag gelöscht.')}catch(err){notify(String(err))}finally{setBusy(false)}};
+ return <div className="full-module blueprint-library-v8">
+  <div className="library-intro"><div><span className="library-kicker"><BookOpen size={15}/> BLUEPRINT INTELLIGENCE · DATENBANK</span><h2>BLUEPRINT-BIBLIOTHEK</h2><p>Eigene oder erlaubte Baupläne sammeln, klassifizieren, nach Höhen, Bunkern und Features suchen und strukturell mit der aktuellen Base vergleichen.</p></div>
+   <div className="library-actions"><button className="button primary" disabled={busy} onClick={()=>setEditMeta(v=>!v)}><FilePlus size={15}/> Aktuelle Base katalogisieren</button><button className="button" onClick={()=>importInput.current?.click()}><FolderOpen size={15}/> JSON importieren</button>
+    <input type="file" hidden ref={importInput} accept=".json,.ghostframe.json,application/json" onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(f)void importFile(f);}}/></div></div>
+  <div className="library-summary"><div><strong>{all.length}</strong><span>Blueprints gesamt</span></div><div><strong>{items.length}</strong><span>Eigene und importierte</span></div><div><strong>{filtered.length}</strong><span>Aktuelle Treffer</span></div><div><strong>{all.filter(e=>e.doc.quality==='L4').length}</strong><span>Ingame validiert</span></div></div>
+  {editMeta&&<section className="library-edit"><div className="library-heading"><strong>AKTUELLE BASE · KATALOGMERKMALE</strong><button onClick={()=>setEditMeta(false)} title="Schließen"><X size={16}/></button></div>
+    <div className="library-fields">
+     <FilterSelect label="Gruppengröße" value={metadata.group} values={GROUPS} change={x=>changeMeta('group',x as BlueprintMetadata['group'])}/>
+     <FilterSelect label="Base-Typ" value={metadata.role} values={BASE_ROLES} change={x=>changeMeta('role',x as BlueprintMetadata['role'])}/>
+     <FilterSelect label="Bunker-Mechanik" value={metadata.bunker} values={BUNKER_TYPES} change={x=>changeMeta('bunker',x as BlueprintMetadata['bunker'])}/>
+     <FilterSelect label="Biom / Standort" value={metadata.biome} values={BIOMES} change={x=>changeMeta('biome',x as BlueprintMetadata['biome'])}/>
+     <OptionalNumber label="Upkeep 24h (Referenz)" value={metadata.upkeep24h??null} change={x=>changeMeta('upkeep24h',x)}/>
+     <OptionalNumber label="Raid-Kosten Rockets (Referenz)" value={metadata.raidMinimumRockets??null} change={x=>changeMeta('raidMinimumRockets',x)}/>
+     <OptionalNumber label="Looträume" value={metadata.lootRooms??null} change={x=>changeMeta('lootRooms',x)}/>
+     <OptionalNumber label="Empfohlene Spieler" value={metadata.recommendedPlayers??null} change={x=>changeMeta('recommendedPlayers',x)}/>
+     <label className="library-field wide"><span>Tags (durch Komma getrennt)</span><input value={metadata.tags.join(', ')} onChange={e=>changeMeta('tags',e.target.value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,40))} placeholder="2x2, 3x3, Peakdowns ..."/></label>
+     <label className="library-field wide"><span>Quellenhinweise / Notizen</span><input value={metadata.creatorNote??''} maxLength={3000} onChange={e=>changeMeta('creatorNote',e.target.value)} placeholder="Quelle, Validierungsstand, Besonderheiten"/></label>
+    </div>
+    <div className="library-features">{FEATURE_KEYS.map(k=><label className="library-feature" key={k}><span>{FEATURE_LABELS[k]}</span><select aria-label={FEATURE_LABELS[k]} value={metadata.features[k]??'unknown'} onChange={e=>changeMeta('features',{...metadata.features,[k]:e.target.value as KnownBoolean})}>{BOOLS.map(v=><option value={v} key={v}>{text(v)}</option>)}</select></label>)}</div>
+    <button className="button primary" disabled={busy||!current.tiles.length} onClick={()=>void saveCurrent()}><Database size={15}/> Blueprint und Merkmale speichern</button>
+    <p className="library-small">Die Merkmale werden bewusst manuell gepflegt. Nicht belegte Angaben bleiben „Unbekannt“. Speichern ersetzt bei gleicher Projekt-ID den bisherigen Bibliothekseintrag.</p>
+   </section>}
+  <section className="library-filter-panel"><div className="library-heading"><strong><SlidersHorizontal size={16}/> SUCHEN & FILTERN</strong><div className="library-heading-actions"><button onClick={()=>setShowAdvanced(v=>!v)}>{showAdvanced?'Weniger Filter':'Erweiterte Filter'}</button><button onClick={()=>setFilters(defaultFilter())}><RefreshCw size={13}/> Zurücksetzen</button></div></div>
+   <div className="library-fields"><label className="library-field wide"><span>Blueprint suchen</span><span className="library-search"><Search size={15}/><input value={filters.query} placeholder="Name, Creator, Stichwörter ..." onChange={e=>change('query',e.target.value)}/></span></label>
+    <FilterSelect label="Spielergruppe" value={filters.group} values={['all',...GROUPS]} change={v=>change('group',v as LibraryFilter['group'])}/>
+    <FilterSelect label="Base-Typ" value={filters.role} values={['all',...BASE_ROLES]} change={v=>change('role',v as LibraryFilter['role'])}/>
+    <FilterSelect label="Bunker-Art" value={filters.bunker} values={['all',...BUNKER_TYPES]} change={v=>change('bunker',v as LibraryFilter['bunker'])}/>
+    <FilterSelect label="Feature" value={filters.feature} values={['all',...FEATURE_KEYS]} change={v=>setFilters(prev=>({...prev,feature:v as LibraryFilter['feature'],featureValue:v==='all'?'all':prev.featureValue==='all'?'yes':prev.featureValue}))}/>
+    <FilterSelect label="Feature vorhanden?" value={filters.featureValue} values={['all',...BOOLS]} change={v=>change('featureValue',v as LibraryFilter['featureValue'])}/>
+    <FilterSelect label="Biome" value={filters.biome} values={['all',...BIOMES]} change={v=>change('biome',v as LibraryFilter['biome'])}/>
+    {showAdvanced&&<>
+     <FilterSelect label="Quellenqualität" value={filters.quality} values={['all','L0','L1','L2','L3','L4']} change={v=>change('quality',v)}/>
+     <FilterSelect label="Material" value={filters.grade} values={['all','twig','wood','stone','metal','armored']} change={v=>change('grade',v as LibraryFilter['grade'])}/>
+     <FilterSelect label="Herkunft" value={filters.origins} values={['all','local','imported','demo']} change={v=>change('origins',v as LibraryFilter['origins'])}/>
+     <OptionalNumber label="Etagen ab" value={filters.floorsMin} change={v=>change('floorsMin',v)}/>
+     <OptionalNumber label="Etagen bis" value={filters.floorsMax} change={v=>change('floorsMax',v)}/>
+     <OptionalNumber label="Flächen ab" value={filters.minTiles} change={v=>change('minTiles',v)}/>
+     <OptionalNumber label="Flächen bis" value={filters.maxTiles} change={v=>change('maxTiles',v)}/>
+     <OptionalNumber label="Max. Rockets (Referenz)" value={filters.rocketMax} change={v=>change('rocketMax',v)}/>
+     <OptionalNumber label="Max. Upkeep 24h (Referenz)" value={filters.upkeepMax} change={v=>change('upkeepMax',v)}/>
+    </>}
+   </div><p className="library-small">Filter sind kombinierbar. „Nein“ bedeutet ausdrücklich erfasstes Nein, nicht fehlende Daten. Kostenfilter schließen Einträge ohne Referenzwert aus.</p>
+  </section>
+  <div className="library-results-head"><strong>{filtered.length} TREFFER</strong><label>Sortieren <select value={sort} onChange={e=>setSort(e.target.value as typeof sort)}><option value="new">Zuletzt gespeichert</option><option value="name">Name A–Z</option><option value="similarity">Strukturähnlichkeit</option></select></label></div>
+  <div className="library-result-grid">
+   {filtered.map(e=>{const m=metadataOf(e.doc),score=scoresById.get(e.key)??0;return <article className="library-result" key={e.key}>
+    <div className="library-result-top"><span className="library-result-icon">{e.doc.tiles.some(t=>t.shape==='triangle')?'△':'▣'}</span><div><strong>{e.doc.name}</strong><small>{text(e.origin)} · {text(e.doc.quality)} · {e.doc.tiles.length} Flächen · {new Set(e.doc.tiles.map(t=>t.floor)).size} Etagen</small></div><span className="library-match-score" title="Grobe Ähnlichkeit der erfassten Struktur, keine Wahrscheinlichkeit">{score}%</span></div>
+    <div className="library-tags"><span>{text(m.group)}</span><span>{text(m.role)}</span><span>{text(m.bunker)}</span>{Object.entries(m.features).filter(([,v])=>v==='yes').slice(0,4).map(([k])=><span key={k}>{FEATURE_LABELS[k as FeatureKey]}</span>)}</div>
+    <div className="library-result-actions"><button className="button primary" onClick={()=>{if(current.tiles.length&&!confirm(`Aktuellen Entwurf durch „${e.doc.name}“ ersetzen?`))return;onOpen(structuredClone(e.doc));notify(`„${e.doc.name}“ im Editor geöffnet.`)}}><FolderOpen size={14}/> Im Editor öffnen</button>
+     <button className="button" onClick={()=>exportProject(e.doc)} title="JSON exportieren"><Download size={14}/></button>
+     {e.origin!=='demo'&&<button className="button" onClick={()=>void remove(e)} title="Aus Bibliothek entfernen"><Trash2 size={14}/></button>}</div>
+   </article>})}
+   {!loading&&!filtered.length&&<div className="library-empty"><Search size={25}/><strong>Keine passenden Blueprints</strong><p>Filter zurücksetzen oder eigene Blueprint-Dateien importieren.</p></div>}
+  </div>
+  <p className="library-disclaimer">Ähnlichkeitswerte vergleichen aktuell nur grobe Form-, Material-, Geschoss- und Höhensignaturen. Das sind <strong>keine Wahrscheinlichkeiten</strong> für einen tatsächlichen Innenaufbau. Die zwei mitgelieferten Designs sind Demonstrationen; keine kopierten Drittanbieter-Blueprints.</p>
+ </div>
+}

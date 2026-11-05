@@ -16,6 +16,8 @@ import { findEdgeAt, findEdgeRecord, findTileAt, nearSlot, slotsFor, stats, tile
 import { exportProject, importProject, loadProject, saveProject } from '../services/persistence.ts';
 import { CATALOG, CATALOG_GROUPS, getCatalogPiece, type CatalogPiece } from '../core/catalog.ts';
 import { StructureIcon } from './StructureIcon.tsx';
+import { BlueprintLibrary } from './BlueprintLibrary.tsx';
+import { skinsForGrade, getSkin, type BuildingSkinId } from '../core/skins.ts';
 import { fitCameraToTiles } from '../core/viewport.ts';
 import { ThreeBaseView } from './ThreeBaseView.tsx';
 import { misplacedUpperTiles, proposedElevation } from '../core/levels.ts';
@@ -39,7 +41,7 @@ function ValueEditor({value,onChange,min,max,step,placeholder}:{value:number|nul
 function ContextEditor({menu,onClose,onNotice,activePiece}:{menu:ContextMenu;onClose:()=>void;onNotice:(s:string)=>void;activePiece:CatalogPiece|null}){
  const doc=useEditor(s=>s.doc),select=useEditor(s=>s.select),attach=useEditor(s=>s.attach);
  const wall=useEditor(s=>s.wall),remove=useEditor(s=>s.eraseTarget);
- const grade=useEditor(s=>s.updateGrade),stability=useEditor(s=>s.updateStability),health=useEditor(s=>s.updateHealth);
+ const grade=useEditor(s=>s.updateGrade),setSkin=useEditor(s=>s.updateSkin),stability=useEditor(s=>s.updateStability),health=useEditor(s=>s.updateHealth);
  const soft=useEditor(s=>s.updateSoftSide),kind=useEditor(s=>s.updateTileKind);
  const insert=useEditor(s=>s.updateInsert),elevation=useEditor(s=>s.updateElevation),updateFloorInsert=useEditor(s=>s.updateFloorInsert);
  const [relative,setRelative]=useState(0);
@@ -92,6 +94,10 @@ function ContextEditor({menu,onClose,onNotice,activePiece}:{menu:ContextMenu;onC
     <label className="field-label">Material</label><select value={record.grade} onChange={e=>change(()=>grade(e.target.value as MaterialGrade))}>
       {MATERIALS.map(m=><option value={m} key={m}>{MATERIAL_NAMES[m]}</option>)}
     </select>
+    <label className="field-label">Building Skin</label>
+    <div className="skin-preview-select"><span className="skin-preview-swatch" style={{background:getSkin(record.skinId).primary}}/><select value={record.skinId??'default'} aria-label="Building Skin" onChange={e=>change(()=>setSkin(e.target.value as BuildingSkinId))}>
+      {skinsForGrade(record.grade).map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+    </select></div><p className="context-help">Offizielle Skin-Namen, eigene schematische Vorschau. Original-Rust-Texturen sind derzeit nicht lizenziert eingebunden.</p>
     <div className="input-dual"><div><label className="field-label">Aktuelle HP</label><ValueEditor value={record.health?.current} min={0} max={20000} step={1} onChange={v=>change(()=>health({current:v,max:record.health?.max??hpFor(record.grade)}))}/></div>
     <div><label className="field-label">Maximale HP</label><ValueEditor value={record.health?.max} min={0} max={20000} step={1} onChange={v=>change(()=>health({current:Math.min(record.health?.current??0,v??0),max:v}))}/></div></div>
     <label className="field-label">Gemessene Stabilität in %</label>
@@ -218,7 +224,7 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
      {floor>0&&below&&tilesOnFloor(doc,floor-1).map(t=><Line key={'b'+t.id} points={points(t.polygon)} closed fill="#857866" opacity={.12} dash={[4,6]} stroke="#98836e"/>)}
      {tiles.map(t=>{const c=centroid(t.polygon),selectedTile=selected?.type==='tile'&&selected.id===t.id;
        return <Group key={t.id}>
-         <Line points={points(t.polygon)} closed fill={MATERIAL_COLORS[t.grade]} opacity={.78} stroke={selectedTile?'#f7c78c':topology?.nodes[t.id]?.status==='anchor'?'#d1a44d':topology?.nodes[t.id]?.status==='linked'?'#72d6a0':topology?.nodes[t.id]?.status==='unverified'?'#ed6f63':'#ae9c87'} strokeWidth={(selectedTile?4:topology?3:2)/camera.scale}/>
+         <Line points={points(t.polygon)} closed fill={t.skinId&&t.skinId!=='default'?getSkin(t.skinId).primary:MATERIAL_COLORS[t.grade]} opacity={.78} stroke={selectedTile?'#f7c78c':topology?.nodes[t.id]?.status==='anchor'?'#d1a44d':topology?.nodes[t.id]?.status==='linked'?'#72d6a0':topology?.nodes[t.id]?.status==='unverified'?'#ed6f63':'#ae9c87'} strokeWidth={(selectedTile?4:topology?3:2)/camera.scale}/>
          <Line points={points(t.polygon)} closed dash={[3,6]} stroke="#e3c7a3" opacity={.18} strokeWidth={.7/camera.scale}/>
          {t.kind==='floor-frame'&&<Line points={points(t.polygon.map(p=>({x:c.x+(p.x-c.x)*.82,y:c.y+(p.y-c.y)*.82})))} closed
            fill={t.floorInsert&&t.floorInsert!=='none'?'#576a6c':'#131d20'} opacity={.96} stroke={t.floorInsert&&t.floorInsert!=='none'?'#e9994d':'#cebea9'} strokeWidth={2/camera.scale}/>}
@@ -233,7 +239,7 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
      })}
      {doc.edges.filter(e=>e.floor===floor).map(e=><Group key={e.id}>
        <Line points={[e.a.x,e.a.y,e.b.x,e.b.y]} stroke="#0a0a09" strokeWidth={11/camera.scale} lineCap="round"/>
-       <Line points={[e.a.x,e.a.y,e.b.x,e.b.y]} stroke={e.insert==='garage-door'?'#ec9d46':e.kind==='doorway'?'#e58d58':e.kind==='window'?'#8ea0a3':'#d1b793'} strokeWidth={(e.insert==='garage-door'?8:5)/camera.scale} dash={e.insert==='garage-door'?[6,2]:e.kind==='doorway'?[7,5]:e.kind==='window'?[3,4]:undefined}/>
+       <Line points={[e.a.x,e.a.y,e.b.x,e.b.y]} stroke={e.insert==='garage-door'?'#ec9d46':e.kind==='doorway'?'#e58d58':e.kind==='window'?'#8ea0a3':e.skinId&&e.skinId!=='default'?getSkin(e.skinId).primary:'#d1b793'} strokeWidth={(e.insert==='garage-door'?8:5)/camera.scale} dash={e.insert==='garage-door'?[6,2]:e.kind==='doorway'?[7,5]:e.kind==='window'?[3,4]:undefined}/>
        {e.insert==='garage-door'&&<KonvaText x={(e.a.x+e.b.x)/2-40} y={(e.a.y+e.b.y)/2-16} width={80} align="center" text="GARAGENTOR" fontSize={9} fontStyle="bold" fill="#ffc080"/>}
      </Group>)}
      {(tool==='square'||tool==='triangle')&&slots.map((s,i)=><Line key={'s'+i} points={points(s.polygon)} closed stroke="#ad946f" opacity={.3} dash={[6,5]} strokeWidth={1/camera.scale}/>)}
@@ -311,7 +317,7 @@ function App(){
  return <div className="app-shell">
   <header className="hero-topbar">
    <div className="hero-brand"><div className="hero-mark"><Hammer size={32}/></div><div><strong>GHOSTFRAME <span>STUDIO</span></strong><small>RUST BASE PLANNER / STABILITY INTELLIGENCE / RAID ANALYSIS</small></div></div>
-   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.7.0</span></div>
+   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.8.0</span></div>
    <div className="top-actions"><span className="save-state"><Save size={13}/>{saved}</span>
     <button className="icon-button" onClick={undo} disabled={!past.length} title="Rückgängig"><Undo2 size={17}/></button>
     <button className="icon-button" onClick={redo} disabled={!future.length} title="Wiederholen"><Redo2 size={17}/></button>
@@ -378,15 +384,11 @@ function App(){
        <div className="overview-grid"><div><Layers3/><strong>{doc.tiles.length}</strong><small>Flächen im Blueprint</small></div><div><Boxes/><strong>{doc.edges.length}</strong><small>Kantenkonstruktionen</small></div><div><Activity/><strong>{doc.tiles.filter(t=>t.stability.percent!==null).length}</strong><small>Gemessene Stabilitäten</small></div></div>
        <div className="dashboard-shortcuts"><button onClick={()=>demo('standard')}>Standard-Demo laden <ChevronRight size={16}/></button><button onClick={()=>demo('bunker')}>Bunker-Höhen-Demo laden <ChevronRight size={16}/></button></div>
      </div>}
-    {module==='library'&&<div className="full-module"><div className="module-hero"><span>VERIFIZIERTE UND EIGENE VORLAGEN</span><h2>BLUEPRINT LIBRARY</h2><p>Diese beiden Einträge sind ausdrücklich Illustrationen, keine aus dem Internet fertig analysierten Rust-Blueprints. Eigene Dateien kannst du über Import laden.</p></div>
-       <div className="library-cards"><button onClick={()=>demo('standard')}><span className="library-sketch">▧</span><strong>Compact Compound</strong><small>2D/3D-Demo · Honeycomb-Muster</small><span>Laden <ChevronRight size={15}/></span></button>
-       <button onClick={()=>demo('bunker')}><span className="library-sketch">△</span><strong>Foundation Offset</strong><small>Individuelle Fundamenthöhen · Zustände</small><span>Laden <ChevronRight size={15}/></span></button></div>
-       <button className="button" onClick={()=>input.current?.click()}><FolderOpen size={14}/> JSON-Blueprint importieren</button>
-     </div>}
+    {module==='library'&&<BlueprintLibrary current={doc} notify={setNotice} onOpen={loaded=>{setDocument(loaded);setRaidPath([]);setModule('studio');setView('2d');setWelcome(false);}}/>}
     {module==='settings'&&<div className="full-module"><div className="module-hero"><span>BEDIENUNG UND DATEN</span><h2>SETTINGS</h2><p>Autosave speichert deine Base lokal im Browser. Daten werden nicht automatisch zu GitHub übertragen.</p></div>
        <div className="settings-card"><strong>Ansicht</strong><div className="mode-switch"><button className={view==='2d'?'selected':''} onClick={()=>{setView('2d');navigate('studio');}}>2D</button><button className={view==='3d'?'selected':''} onClick={()=>{setView('3d');navigate('studio');}}>3D</button><button className={view==='split'?'selected':''} onClick={()=>{setView('split');navigate('studio');}}>Split</button></div></div>
        <div className="settings-card"><strong>Projekt sichern</strong><p>Nutze den JSON-Export für Sicherung und Gerätewechsel.</p><button className="button primary" onClick={()=>exportProject(doc)}><Download size={15}/> JSON exportieren</button></div>
-       <div className="settings-card"><strong>Softwarestand</strong><p>GHOSTFRAME v0.7.0 · unabhängige Rust-inspirierte Oberfläche, keine Original-Rust-Assets.</p></div>
+       <div className="settings-card"><strong>Softwarestand</strong><p>GHOSTFRAME v0.8.0 · unabhängige Rust-inspirierte Oberfläche, keine Original-Rust-Assets.</p></div>
      </div>}
    </main>
    {!minimized&&<AnalysisPanel doc={doc} selected={selected} path={raidPath} setPath={setRaidPath} tab={analysisTab} setTab={setAnalysisTab} activeRoute={module==='raid'}/>}
@@ -398,7 +400,7 @@ function App(){
     <div><span><BarChart3 size={15}/> AKTUELLES GESCHOSS</span><strong>{numbers.tiles}</strong><small>Flächen F{floor}</small></div>
     <div><span><ShieldAlert size={15}/> RAID STATUS</span><strong>{raidPath.length}</strong><small>Manuelle Ziele</small></div>
   </div>
-  <footer className="statusbar"><span><span className="status-light"/> EDITOR ONLINE</span><span>GHOSTFRAME v0.7.0 · Originales Wasteland-Design · Nicht von Facepunch</span><span>F{floor} <ChevronRight size={12}/> {doc.tiles.length} TILES</span></footer>
+  <footer className="statusbar"><span><span className="status-light"/> EDITOR ONLINE</span><span>GHOSTFRAME v0.8.0 · Originales Wasteland-Design · Nicht von Facepunch</span><span>F{floor} <ChevronRight size={12}/> {doc.tiles.length} TILES</span></footer>
   {notice&&<div className="toast"><Check size={16}/>{notice}<button onClick={()=>setNotice(null)} aria-label="Meldung schließen"><X size={16}/></button></div>}
   {welcome&&doc.tiles.length===0&&module==='studio'&&view!=='3d'&&<div className="onboarding-hint" role="status"><span>NEUE BASE</span> Wähle links <strong>Quadrat oder Dreieck</strong> und klicke in den Bauplan. <button onClick={()=>setWelcome(false)}>OK</button></div>}
  </div>;

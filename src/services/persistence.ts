@@ -1,16 +1,19 @@
 import type { BlueprintDocument } from '../core/blueprint.ts';
+import { isBuildingSkinId, skinCompatible } from '../core/skins.ts';
+import { isBlueprintMetadata } from '../core/library-validation.ts';
 import { edgeAt, overlapsArea, polygonArea, polygonSignedArea, sameEdge } from '../core/geometry.ts';
 
 const DATABASE='ghostframe-projects';
 const OBJECT_STORE='documents';
 const ACTIVE_KEY='active';
 
-function openDB():Promise<IDBDatabase>{
+export function openDB():Promise<IDBDatabase>{
   return new Promise((resolve,reject)=>{
-    const request=indexedDB.open(DATABASE,1);
+    const request=indexedDB.open(DATABASE,2);
     request.onupgradeneeded=()=>{
       const db=request.result;
       if(!db.objectStoreNames.contains(OBJECT_STORE))db.createObjectStore(OBJECT_STORE);
+      if(!db.objectStoreNames.contains('library'))db.createObjectStore('library');
     };
     request.onsuccess=()=>resolve(request.result);
     request.onerror=()=>reject(request.error);
@@ -62,6 +65,7 @@ function isExtended(x:Record<string,unknown>,edge:boolean):boolean{
       (h.current!==null&&h.max!==null&&Number(h.current)>Number(h.max)))return false;
   }
   if(x.softSide!==undefined&&!SIDES.includes(String(x.softSide)))return false;
+  if(x.skinId!==undefined&&(!isBuildingSkinId(x.skinId)||!skinCompatible(x.skinId,x.grade as Parameters<typeof skinCompatible>[1])))return false;
   if(edge){
     if(x.insert!==undefined&&!INSERTS.includes(String(x.insert)))return false;
   }else{
@@ -89,6 +93,7 @@ export function parseBlueprint(data:unknown):BlueprintDocument {
   if(!isObj(data.game)||data.game.name!=='Rust'||!['vanilla','modded'].includes(String(data.game.mode))||
      !isObj(data.source)||!Array.isArray(data.notes)||!['L0','L1','L2','L3','L4'].includes(String(data.quality)))
     throw new Error('Ungültige Metadaten im Blueprint.');
+  if(data.library!==undefined&&!isBlueprintMetadata(data.library))throw new Error('Ungültige Blueprint-Kataloginformationen.');
   const ids=new Set<string>();
   for(const t of data.tiles){
     if(!isObj(t)||typeof t.id!=='string'||!t.id||ids.has(t.id)||!['square','triangle'].includes(String(t.shape))||

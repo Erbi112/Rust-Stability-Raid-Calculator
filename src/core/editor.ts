@@ -1,4 +1,5 @@
 import { attachPolygon, availableSlots, edgeAt, initialPolygon, overlapsArea, polygonArea, sameEdge, samePoint, type Point, type Tile, type TileShape, type Polygon } from './geometry.ts';
+import { skinCompatible, type BuildingSkinId } from './skins.ts';
 import { createEmptyBlueprint, unmeasuredStability, type BlueprintDocument, type BuildingEdge, type BuildingTile, type EdgeKind, type MaterialGrade, type BuildingKind, type SoftSide, type DoorInsert, type FloorInsert, makeHealth } from './blueprint.ts';
 
 export type EditorTool = 'inspect' | 'square' | 'triangle' | 'wall' | 'doorway' | 'window' | 'erase';
@@ -136,11 +137,12 @@ export function installGarageDoor(doc:BlueprintDocument,edgeId:string):Blueprint
   if(edge.insert==='garage-door')return doc;
   return {...doc,edges:doc.edges.map(e=>e.id===edgeId?{...e,insert:'garage-door'}:e)};
 }
-export type EntityPatch = {grade?:MaterialGrade;stability?:number|null;health?:{current:number|null;max:number|null};softSide?:SoftSide;tileKind?:BuildingKind;edgeKind?:EdgeKind;insert?:DoorInsert;rotation?:number;elevation?:number};
+export type EntityPatch = {skinId?:BuildingSkinId;grade?:MaterialGrade;stability?:number|null;health?:{current:number|null;max:number|null};softSide?:SoftSide;tileKind?:BuildingKind;edgeKind?:EdgeKind;insert?:DoorInsert;rotation?:number;elevation?:number};
 export function updateSelected(doc:BlueprintDocument,selection:SelectedEntity,patch:EntityPatch):BlueprintDocument {
   if(!selection)return doc;
   const applyCommon=<T extends BuildingTile|BuildingEdge>(e:T):T=>({ ...e,
-    ...(patch.grade?{grade:patch.grade,health:makeHealth(patch.grade)}:{}),
+    ...(patch.grade?{grade:patch.grade,health:makeHealth(patch.grade),skinId:skinCompatible(e.skinId??'default',patch.grade)?e.skinId:'default'}:{}),
+    ...(patch.skinId!==undefined&&skinCompatible(patch.skinId,patch.grade??e.grade)?{skinId:patch.skinId}:{}),
     ...(patch.stability!==undefined?{stability:{...e.stability,percent:patch.stability,source:patch.stability===null?'unknown':'player'}}:{}),
     ...(patch.health!==undefined?{health:{...patch.health}}:{}),
     ...(patch.softSide?{softSide:patch.softSide}:{}),

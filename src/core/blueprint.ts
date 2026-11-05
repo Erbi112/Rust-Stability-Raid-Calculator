@@ -1,5 +1,7 @@
 /** Draft v1 domain model. Schema verification (Zod) begins in M1. */
 import type { Point, Polygon, TileShape } from './geometry.ts';
+import type { BuildingSkinId } from './skins.ts';
+import type { BlueprintMetadata } from './library.ts';
 
 export type MaterialGrade = 'twig' | 'wood' | 'stone' | 'metal' | 'armored' | 'unknown';
 export type ObservationKind = 'observed' | 'inferred' | 'hypothesized';
@@ -38,6 +40,7 @@ export interface BuildingTile {
   grade: MaterialGrade;
   stability: MeasuredStability;
   observation: ObservationKind;
+  skinId?: BuildingSkinId;
   health?: HealthState;
   softSide?: SoftSide;
   rotation?: number;
@@ -59,6 +62,7 @@ export interface BuildingEdge {
   health?: HealthState;
   softSide?: SoftSide;
   insert?: DoorInsert;
+  skinId?: BuildingSkinId;
 }
 
 export interface BlueprintState {
@@ -89,6 +93,7 @@ export interface BlueprintDocument {
   notes: string[];
   states?: BlueprintState[];
   bunker?: BunkerMetadata;
+  library?: BlueprintMetadata;
 }
 
 export function unmeasuredStability(): MeasuredStability {
