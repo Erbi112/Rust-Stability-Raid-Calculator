@@ -106,9 +106,16 @@ export function blueprintsMatchFilter(entry:LibraryEntry,f:LibraryFilter):boolea
  return true;
 }
 export type SimilarityResult={key:string;score:number;confidence:'coarse-structure-only';reasons:string[]};
+/** Support both historical height-signature field names. */
+type HeightEdge={pair:string;delta:number};
+function measuredHeightEdges(pattern:unknown):readonly HeightEdge[]{
+ if(!pattern||typeof pattern!=='object')return [];
+ const p=pattern as {transitions?:readonly HeightEdge[];adjacency?:readonly HeightEdge[]};
+ return p.transitions??p.adjacency??[];
+}
 /** Deterministic structural similarity score, explicitly NOT the probability of a particular base. */
 export function compareLibraryBase(observed:BlueprintDocument,candidates:readonly LibraryEntry[]):SimilarityResult[]{
- const observedPattern=heightPattern(observed);
+ const observedPattern=measuredHeightEdges(heightPattern(observed));
  const floors=new Set(observed.tiles.map(x=>x.floor)).size;
  const typeCounts=(doc:BlueprintDocument)=>['square','triangle'].map(shape=>doc.tiles.filter(t=>t.shape===shape).length);
  const own=typeCounts(observed);
@@ -117,10 +124,11 @@ export function compareLibraryBase(observed:BlueprintDocument,candidates:readonl
   const shapePenalty=other.reduce((n,v,i)=>n+Math.abs(v-own[i]!),0)/Math.max(1,observed.tiles.length+e.doc.tiles.length);
   const floorPenalty=Math.abs(candidateFloors-floors)/Math.max(1,candidateFloors,floors);
   const gradePenalty=e.doc.tiles.length&&observed.tiles.length ? Math.abs((e.doc.tiles.filter(t=>t.grade==='metal').length/e.doc.tiles.length)-(observed.tiles.filter(t=>t.grade==='metal').length/observed.tiles.length)) : 0;
-  const h=heightPattern(e.doc);
-  const sample=observedPattern.adjacency.filter(a=>h.adjacency.some(b=>b.pair===a.pair&&Math.abs(a.delta-b.delta)<.01)).length;
-  const heightPenalty=observedPattern.adjacency.length?(1-sample/observedPattern.adjacency.length):0;
+  const h=measuredHeightEdges(heightPattern(e.doc));
+  const normalized=(s:string)=>s.replace(/[-/]/g,':');
+  const sample=observedPattern.filter(a=>h.some(b=>normalized(b.pair)===normalized(a.pair)&&Math.abs(a.delta-b.delta)<.01)).length;
+  const heightPenalty=observedPattern.length?(1-sample/observedPattern.length):0;
   const score=Math.max(0,Math.min(100,Math.round(100*(1-(.56*shapePenalty+.22*floorPenalty+.12*gradePenalty+.10*heightPenalty)))));
-  return {key:e.key,score,confidence:'coarse-structure-only' as const,reasons:[`Grundformen: ${other.join(' / ')}`,`Etagen: ${candidateFloors}`,observedPattern.adjacency.length?'Höhenübergänge teilweise verglichen':'Keine gemeinsamen gemessenen Höhenübergänge']};
+  return {key:e.key,score,confidence:'coarse-structure-only' as const,reasons:[`Grundformen: ${other.join(' / ')}`,`Etagen: ${candidateFloors}`,observedPattern.length?'Höhenübergänge teilweise verglichen':'Keine gemeinsamen gemessenen Höhenübergänge']};
  }).sort((a,b)=>b.score-a.score);
 }
