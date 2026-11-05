@@ -4,7 +4,7 @@ import type Konva from 'konva';
 import { Activity, ArrowDown, ArrowUp, Box, Check, ChevronDown, ChevronRight, CircleHelp,
   Database, DoorOpen, Download, Eraser, Eye, FilePlus2, FolderOpen, Grid3X3, Layers3,
   LockKeyhole, MousePointer2, Move, Pentagon, Redo2, RotateCcw, Save, ShieldAlert,
-  Square, Triangle, TrendingUp, Undo2, X, ZoomIn, ZoomOut, Warehouse } from 'lucide-react';
+  Square, Triangle, Hammer, TrendingUp, Undo2, X, ZoomIn, ZoomOut, Warehouse } from 'lucide-react';
 import { useEditor } from '../store/useEditor.ts';
 import BlueprintMenu, {BuildingCatalog, type ClickMenu} from './BlueprintMenu.tsx';
 import { type Point, type Polygon, type TileShape } from '../core/geometry.ts';
