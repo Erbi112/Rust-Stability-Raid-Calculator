@@ -211,7 +211,7 @@ const NAV_ITEMS:{id:Module;label:string;icon:typeof Home}[]=[
   {id:'stability',label:'Stability',icon:Activity},{id:'settings',label:'Settings',icon:Settings2}
 ];
 function App(){
- const doc=useEditor(s=>s.doc),tool=useEditor(s=>s.tool),setTool=useEditor(s=>s.setTool);
+ const doc=useEditor(s=>s.doc),setTool=useEditor(s=>s.setTool);
  const floor=useEditor(s=>s.floor),setFloor=useEditor(s=>s.setFloor),undo=useEditor(s=>s.undo),redo=useEditor(s=>s.redo);
  const past=useEditor(s=>s.past),future=useEditor(s=>s.future),modified=useEditor(s=>s.modifiedAt);
  const startNew=useEditor(s=>s.startNew),loadExample=useEditor(s=>s.loadExample),loadBunkerExample=useEditor(s=>s.loadBunkerExample),setDocument=useEditor(s=>s.setDocument);
