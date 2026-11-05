@@ -3,8 +3,12 @@ import type { Point, Polygon, TileShape } from './geometry.ts';
 
 export type MaterialGrade = 'twig' | 'wood' | 'stone' | 'metal' | 'armored' | 'unknown';
 export type ObservationKind = 'observed' | 'inferred' | 'hypothesized';
-export type BuildingKind = 'foundation' | 'floor' | 'floor-frame' | 'roof' | 'unknown';
+export type BuildingKind = 'foundation' | 'floor' | 'floor-frame' | 'roof' | 'stairs-u' | 'stairs-l' | 'stairs-spiral' | 'stairs-spiral-triangle' | 'ramp' | 'foundation-steps' | 'unknown';
 export type EdgeKind = 'wall' | 'doorway' | 'window' | 'wall-frame' | 'half-wall' | 'low-wall' | 'unknown';
+/** Left/right mean the two sides of an oriented wall edge (A→B). */
+export type SoftSide = 'left' | 'right' | 'up' | 'down' | 'unknown';
+export type DoorInsert = 'none' | 'wood-door' | 'sheet-metal-door' | 'armored-door' | 'garage-door' | 'double-sheet-metal-door' | 'double-armored-door';
+export type HealthState = { current: number | null; max: number | null };
 
 export interface MeasuredStability {
   /** null = not measured, never interpreted as 0 */
@@ -31,6 +35,11 @@ export interface BuildingTile {
   grade: MaterialGrade;
   stability: MeasuredStability;
   observation: ObservationKind;
+  health?: HealthState;
+  softSide?: SoftSide;
+  rotation?: number;
+  /** The top-surface elevation measured in wall heights (H). Optional because a screenshot often cannot reveal z. */
+  elevation?: number;
 }
 
 export interface BuildingEdge {
@@ -42,6 +51,24 @@ export interface BuildingEdge {
   grade: MaterialGrade;
   stability: MeasuredStability;
   observation: ObservationKind;
+  health?: HealthState;
+  softSide?: SoftSide;
+  insert?: DoorInsert;
+}
+
+export interface BlueprintState {
+  id: string;
+  label: string;
+  purpose: 'sealed' | 'open' | 'construction' | 'other';
+  tileIds: string[];
+  edgeIds: string[];
+  notes: string;
+}
+export interface BunkerMetadata {
+  mechanism: 'stability' | 'roof' | 'offset' | 'other' | 'unknown';
+  verifiedInGamePatch: string | null;
+  evidenceUrl: string | null;
+  note: string;
 }
 
 export interface BlueprintDocument {
@@ -55,6 +82,8 @@ export interface BlueprintDocument {
   tiles: BuildingTile[];
   edges: BuildingEdge[];
   notes: string[];
+  states?: BlueprintState[];
+  bunker?: BunkerMetadata;
 }
 
 export function unmeasuredStability(): MeasuredStability {
@@ -67,4 +96,13 @@ export function createEmptyBlueprint(id: string, name: string): BlueprintDocumen
     units: 'building-unit', source: { url: null, creator: null, license: null,
       permissionEvidence: null, importedAt: null },
     quality: 'L0', tiles: [], edges: [], notes: [] };
+}
+
+/** Unverified reference HP values for generic pieces; replace with patch-aware datasets before raid use. */
+export const REFERENCE_MAX_HP:Record<MaterialGrade,number|null>={
+  twig:10,wood:250,stone:500,metal:1000,armored:2000,unknown:null
+};
+export const DOOR_INSERTS:DoorInsert[]=['none','wood-door','sheet-metal-door','armored-door','garage-door','double-sheet-metal-door','double-armored-door'];
+export function makeHealth(grade:MaterialGrade):HealthState{
+  const max=REFERENCE_MAX_HP[grade];return {current:max,max};
 }
