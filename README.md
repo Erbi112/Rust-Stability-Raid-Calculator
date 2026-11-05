@@ -1,12 +1,28 @@
 # GHOSTFRAME · Rust Base Planner, Stability & Raid Intelligence
 
-![Version](https://img.shields.io/badge/version-v0.5.0-cb682f) ![CI](https://img.shields.io/badge/CI-tests%20%2B%20build-394c51)
+![Version](https://img.shields.io/badge/version-v0.8.0-cb682f) ![CI](https://img.shields.io/badge/CI-tests%20%2B%20build-394c51)
 
 [**▶ GHOSTFRAME im Browser öffnen**](https://erbi112.github.io/Rust-Stability-Raid-Calculator/)
 
 Browser-based blueprint editor for the game **Rust**, independently designed and not affiliated with Facepunch Studios. Original vector illustrations and original interface assets; no copied game graphics.
 
-## Release v0.5 · Visual 2D/3D Studio
+## Release v0.8 · Blueprint Intelligence & Multi-Filter Library
+
+- Local multi-Blueprint database with JSON import/export, provenance, search and catalog tagging.
+- Classify Solo, Duo, Trio, Squad and Clan (including multiple suitable group sizes), starter/core/farm/compound types, footprint, biome, bunker mechanism, expansion stage and preferred online/offline defense.
+- **67 construction and defense tags in eight practical groups**: external TCs, multi-TC, honeycomb, floor stacking, bunker styles, peeks, wide gaps, defense systems, loot and utility systems, logistics and expansion features.
+- Search with **simultaneous YES / NO / UNKNOWN constraints** across multiple tags. Missing information is not treated as a confirmed NO.
+- Numeric filters include level count, tiles, known upkeep/raid costs, external TC and bunker counts, loot rooms, known stone build cost.
+- Custom catalog metadata survives blueprint JSON import/export and editor save/undo. Existing blueprints remain readable.
+- Rust building-skin selector: official skin **names** and material-tier restrictions, with distinct **original procedural previews**, not extracted/infringing game textures. The interface never claims pixel-identical visuals.
+- Fixed the unwanted horizontal scrollbar in the construction sidebar; vertical scrolling remains available.
+- Conservative geometric blueprint similarity score, **not** a calibrated probability or complete inside-layout reconstruction.
+
+### Important limitations
+
+The current catalog initially ships with two **own demo blueprints** and whatever you import or draw. It does **not** download or extract thousands of third-party builds automatically. Permission and reliable multi-floor geometry are required to enlarge the library. Skin previews are custom approximations: exact in-game assets are not bundled or available without appropriate licensing.
+
+## Previous work · v0.5 Visual 2D/3D Studio
 
 - Fully **clickable grouped building catalog** (26 construction pieces and door inserts) with custom original icons. Each selection has a functional edit/place mode; no placeholder dropdown-only catalog.
 - Native **2D polygon floor planner**, **interactive 3D view**, and **split mode**. 3D uses Three.js from the *same* blueprint document. Drag to orbit, scroll to zoom, show selected floor or all floors, toggle exploded levels and optional speculative outer hull.
@@ -16,14 +32,14 @@ Browser-based blueprint editor for the game **Rust**, independently designed and
 - Triangle or square as the **first** foundation. Selection, zoom/pan, undo/redo, floor switch, JSON import/export, and browser IndexedDB autosave remain available.
 - Right-side manual **raid target list** with selectable Rockets/C4 counts and sulfur for *explicitly selected targets* using named public reference data. Not an optimal-path algorithm. Missing/unsupported categories produce no invented number.
 - Stability dashboard shows only measurements actually entered. No fake physics or invented probability figures.
-- 34 deterministic Node tests for geometry, catalog, heights, persisted blueprint formats, and manual raid costs.
+- Deterministic Node tests cover geometry, catalog, heights, saved formats, structural connectivity and filtering.
 
 ### Current limitations (must not be presented as verified game mechanics)
 
 1. **3D is a visualization**, not a Rust-valid building physics solver. Stairs, roof forms, and some door frame types have **schematic** geometry; some socket and height placements are not validated against the current game patch.
 2. The optional 3D **Hülle** toggle renders guessed outer-wall previews; this is **never** saved as factual building evidence.
 3. **Raid prices** use public reference tables for intact standard targets and simple additive manual paths, no partial-health damage simulation, splash damage, building collapse or automatic search for the cheapest route.
-4. Rust's exact stability, current patch variations, blueprint matching database, collaborative server storage, and automated raid optimization follow in larger future releases.
+4. Rust's exact stability, current patch variations, statistically calibrated hidden-base recognition, collaborative server storage, and automated raid optimization follow in larger future releases.
 
 ### Raid reference sources
 
@@ -72,7 +88,7 @@ GitHub Pages is configured to deploy from **GitHub Actions**. Every push to `mai
 - `tests/` — geometry, state, catalog and cost regression tests
 - `legacy/` — preserved earlier user-approved prototype
 
-See [ROADMAP.md](ROADMAP.md) and [v0.5 release notes](docs/RELEASE-v0.5.md).
+See [ROADMAP.md](ROADMAP.md) and [v0.8 release notes](docs/RELEASE-v0.8.md).
 
 **Development principle:** one complete integrated functional release block, then comprehensive regression test / CI deployment, then the next large block.
 

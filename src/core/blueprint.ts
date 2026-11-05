@@ -7,7 +7,7 @@ export type MaterialGrade = 'twig' | 'wood' | 'stone' | 'metal' | 'armored' | 'u
 export type ObservationKind = 'observed' | 'inferred' | 'hypothesized';
 export type BuildingKind = 'foundation' | 'floor' | 'floor-frame' | 'roof' | 'stairs-u' | 'stairs-l' | 'stairs-spiral' | 'stairs-spiral-triangle' | 'ramp' | 'foundation-steps' | 'unknown';
 export type EdgeKind = 'wall' | 'doorway' | 'window' | 'wall-frame' | 'half-wall' | 'low-wall' | 'unknown';
-/** Left/right mean the two sides of an oriented wall edge (A→B). */
+/** Left / right are relative to edge points A→B. Up / down describe horizontal surfaces. */
 export type SoftSide = 'left' | 'right' | 'up' | 'down' | 'unknown';
 export type DoorInsert = 'none' | 'wood-door' | 'sheet-metal-door' | 'armored-door' | 'garage-door' | 'double-sheet-metal-door' | 'double-armored-door';
 /** Insert placed into a floor frame, separate from the supporting structure. */
@@ -41,12 +41,15 @@ export interface BuildingTile {
   stability: MeasuredStability;
   observation: ObservationKind;
   skinId?: BuildingSkinId;
+  /** Optional so documents saved by v0.3 remain valid and importable. */
   health?: HealthState;
   softSide?: SoftSide;
   rotation?: number;
   /** Hatch insert; only permitted in a matching square/triangle floor frame. */
   floorInsert?: FloorInsert;
-  /** The top-surface elevation measured in wall heights (H). Optional because a screenshot often cannot reveal z. */
+  /** Top surface elevation in wall-height units (1 = one full Rust wall height).
+   *  Independent of plan floor. Legacy v0.3 records default to 0 (or their floor).
+   *  Source plans keep exact elevation even if physical build legality is uncertain. */
   elevation?: number;
 }
 
@@ -65,6 +68,8 @@ export interface BuildingEdge {
   skinId?: BuildingSkinId;
 }
 
+/** Structural state for bunker templates: do not conflate sealed and open geometry.
+ * Phase transitions and collapse dynamics require a separately verified Rust ruleset. */
 export interface BlueprintState {
   id: string;
   label: string;
@@ -79,7 +84,6 @@ export interface BunkerMetadata {
   evidenceUrl: string | null;
   note: string;
 }
-
 export interface BlueprintDocument {
   schemaVersion: '1.0.0';
   id: string;
@@ -108,11 +112,12 @@ export function createEmptyBlueprint(id: string, name: string): BlueprintDocumen
     quality: 'L0', tiles: [], edges: [], notes: [] };
 }
 
-/** Unverified reference HP values for generic pieces; replace with patch-aware datasets before raid use. */
-export const REFERENCE_MAX_HP:Record<MaterialGrade,number|null>={
-  twig:10,wood:250,stone:500,metal:1000,armored:2000,unknown:null
+/** Reference HP by grade. Does not imply patch-verified durability for every piece. */
+export const REFERENCE_MAX_HP: Record<MaterialGrade,number|null> = {
+  twig:10, wood:250, stone:500, metal:1000, armored:2000, unknown:null
 };
-export const DOOR_INSERTS:DoorInsert[]=['none','wood-door','sheet-metal-door','armored-door','garage-door','double-sheet-metal-door','double-armored-door'];
-export function makeHealth(grade:MaterialGrade):HealthState{
+export const SOFT_SIDES: SoftSide[]=['left','right','up','down','unknown'];
+export const DOOR_INSERTS: DoorInsert[]=['none','wood-door','sheet-metal-door','armored-door','garage-door','double-sheet-metal-door','double-armored-door'];
+export function makeHealth(grade:MaterialGrade):HealthState {
   const max=REFERENCE_MAX_HP[grade];return {current:max,max};
 }

@@ -66,9 +66,8 @@ function isExtended(x:Record<string,unknown>,edge:boolean):boolean{
   }
   if(x.softSide!==undefined&&!SIDES.includes(String(x.softSide)))return false;
   if(x.skinId!==undefined&&(!isBuildingSkinId(x.skinId)||!skinCompatible(x.skinId,x.grade as Parameters<typeof skinCompatible>[1])))return false;
-  if(edge){
-    if(x.insert!==undefined&&!INSERTS.includes(String(x.insert)))return false;
-  }else{
+  if(edge){if(x.insert!==undefined&&!INSERTS.includes(String(x.insert)))return false;}
+  else {
     if(x.floorInsert!==undefined){
       if(!FLOOR_INSERTS.includes(String(x.floorInsert))||x.kind!=='floor-frame')return false;
       if(x.floorInsert==='ladder-hatch'&&x.shape!=='square')return false;
@@ -79,6 +78,7 @@ function isExtended(x:Record<string,unknown>,edge:boolean):boolean{
   }
   return true;
 }
+
 function isStability(x:unknown):boolean{
   return isObj(x)&&(x.percent===null||(isNumber(x.percent)&&x.percent>=0&&x.percent<=100))&&
     ['player','screenshot','import','simulator','unknown'].includes(String(x.source)) &&
@@ -127,7 +127,7 @@ export function parseBlueprint(data:unknown):BlueprintDocument {
       used.add(state.id);
     }
   }
-  if(data.bunker!==undefined&&(!isObj(data.bunker)||
+  if(data.bunker!==undefined && (!isObj(data.bunker)||
     !['stability','roof','offset','other','unknown'].includes(String(data.bunker.mechanism))||
     !(data.bunker.verifiedInGamePatch===null||typeof data.bunker.verifiedInGamePatch==='string')||
     !(data.bunker.evidenceUrl===null||typeof data.bunker.evidenceUrl==='string')||

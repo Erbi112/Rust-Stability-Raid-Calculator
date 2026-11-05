@@ -57,3 +57,51 @@ test('empty metadata yields unknown, not false',()=>{
  const doc=createEmptyBlueprint('e','Unknown');const m=metadataOf(doc);
  assert.equal(m.features.externalTC,undefined);assert.equal(m.bunker,'unknown');
 });
+
+test('extended categories include compound, utility, external TC and bunker details',()=>{
+ for(const key of ['floorStack','wallStack','airlock','industrialConveyor','disconnectableTC','offsetFoundations','shootingFloor','outerPeakdowns','samSites','offlineDefense','stabilityBunker','roofBunker']){
+  assert.ok(FEATURE_KEYS.includes(key as typeof FEATURE_KEYS[number]),key);
+ }
+});
+test('multiple feature constraints combine with AND; unknown is not no',()=>{
+ const e=makeEntry(); const f=defaultFilter();
+ f.featureConstraints={externalTC:'no',honeycomb:'yes'};
+ assert.equal(blueprintsMatchFilter(e,f),true);
+ f.featureConstraints={externalTC:'no',honeycomb:'no'};
+ assert.equal(blueprintsMatchFilter(e,f),false);
+ f.featureConstraints={externalTC:'unknown'};
+ assert.equal(blueprintsMatchFilter(e,f),false);
+ f.featureConstraints={multiTC:'unknown'};
+ assert.equal(blueprintsMatchFilter(e,f),true);
+ f.featureConstraints={multiTC:'no'};
+ assert.equal(blueprintsMatchFilter(e,f),false);
+});
+test('multiple team-size filters are OR while bunker type and external TC are AND',()=>{
+ const e=makeEntry(),f=defaultFilter();
+ e.doc.library!.supportedGroups=['duo','trio'];
+ f.groups=['solo','squad']; f.bunker='stability'; f.featureConstraints={externalTC:'no'};
+ assert.equal(blueprintsMatchFilter(e,f),true);
+ f.groups=['squad','clan'];assert.equal(blueprintsMatchFilter(e,f),false);
+ f.groups=['duo','clan'];assert.equal(blueprintsMatchFilter(e,f),true);
+ f.bunker='roof';assert.equal(blueprintsMatchFilter(e,f),false);
+});
+test('supplemental numeric categories require known values',()=>{
+ const e=makeEntry(),f=defaultFilter();
+ f.externalTCMin=2;assert.equal(blueprintsMatchFilter(e,f),false);
+ e.doc.library!.externalTCCount=1;assert.equal(blueprintsMatchFilter(e,f),false);
+ e.doc.library!.externalTCCount=3;assert.equal(blueprintsMatchFilter(e,f),true);
+ f.buildCostStoneMax=10000;assert.equal(blueprintsMatchFilter(e,f),false);
+ e.doc.library!.buildCostStone=8000;assert.equal(blueprintsMatchFilter(e,f),true);
+});
+test('new metadata fields roundtrip and reject invalid catalog data',()=>{
+ const e=makeEntry();
+ e.doc.library={...e.doc.library!,footprint:'2x2',stage:'expandable',defense:'offline',supportedGroups:['solo','duo'],externalTCCount:2,buildCostStone:9000,features:{externalTC:'yes',floorStack:'unknown'}};
+ assert.equal(isBlueprintMetadata(e.doc.library),true);
+ const copied=parseBlueprint(structuredClone(e.doc));
+ assert.equal(copied.library?.supportedGroups?.[1],'duo');
+ assert.equal(copied.library?.features.floorStack,'unknown');
+ const invalid=structuredClone(e.doc);invalid.library!.supportedGroups=['solo','solo'];
+ assert.equal(isBlueprintMetadata(invalid.library),false);
+ const invalidCost=structuredClone(e.doc);invalidCost.library!.buildCostStone=-2;
+ assert.equal(isBlueprintMetadata(invalidCost.library),false);
+});

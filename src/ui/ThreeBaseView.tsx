@@ -109,7 +109,7 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
     textures.set(grade,texture);return texture;
   };
   const meshMaterial=(grade:MaterialGrade,transparent=false,skinId?:BuildingSkinId)=>new THREE.MeshStandardMaterial({
-    color:0xffffff,map:skinId&&skinId!=='default'?skinTexture(skinId)??textureFor(grade):textureFor(grade),roughness:grade==='metal'||grade==='armored'?.59:.94,
+    color:0xffffff,map:textureFor(grade),roughness:grade==='metal'||grade==='armored'?.59:.94,
     metalness:grade==='metal'||grade==='armored'?.25:0,transparent,opacity:transparent?.20:1,
     side:THREE.DoubleSide
   });
@@ -117,10 +117,10 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
   const offset=(f:number)=>exploded?f*1.25:0;
   const tileY=(t:BuildingTile)=>(tileHeight(t)*WALL_HEIGHT)+offset(t.floor);
   const addBox=(parent:THREE.Group,length:number,height:number,depth:number,color:number,
-    x:number,y:number,z:number,rotate=0,opacity=1,skinId?:BuildingSkinId)=>{
+    x:number,y:number,z:number,rotate=0,opacity=1)=>{
     const grade=(Object.entries(COLORS).find(([,v])=>v===color)?.[0]??null) as MaterialGrade|null;
-    const mat=new THREE.MeshStandardMaterial({color:skinId&&skinId!=='default'?0xffffff:grade?0xffffff:color,
-      ...((skinId&&skinId!=='default')?{map:skinTexture(skinId)}:grade?{map:textureFor(grade)}:{}),roughness:grade==='metal'||grade==='armored'?.58:.87,
+    const mat=new THREE.MeshStandardMaterial({color:grade?0xffffff:color,
+      ...(grade?{map:textureFor(grade)}:{}),roughness:grade==='metal'||grade==='armored'?.58:.87,
       metalness:grade==='metal'||grade==='armored'?.2:0,transparent:opacity<1,opacity});
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(length,height,depth),mat);
     mesh.position.set(x,y,z);mesh.rotation.y=rotate;mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;
@@ -155,7 +155,7 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
       }
       geometry.dispose();
     }else{
-      const floorMesh=new THREE.Mesh(geometry,meshMaterial(tile.grade,false,tile.skinId));
+      const floorMesh=new THREE.Mesh(geometry,meshMaterial(tile.grade));
       floorMesh.position.y=tileY(tile); // upper face at matching building height
       floorMesh.castShadow=true;floorMesh.receiveShadow=true;group.add(floorMesh);
     }
