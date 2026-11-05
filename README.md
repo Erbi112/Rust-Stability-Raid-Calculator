@@ -1,67 +1,77 @@
-# GHOSTFRAME
+# GHOSTFRAME · Rust Base Planner, Stability & Raid Intelligence
 
-**Rust Stability & Raid Intelligence** · Editor Release `v0.3.0`
+![Version](https://img.shields.io/badge/version-v0.5.0-cb682f) ![CI](https://img.shields.io/badge/CI-tests%20%2B%20build-394c51)
 
-GHOSTFRAME is an independent browser-based base blueprint editor for the survival game Rust. It is **not** affiliated with Facepunch Studios.
+[**▶ GHOSTFRAME im Browser öffnen**](https://erbi112.github.io/Rust-Stability-Raid-Calculator/)
 
-## Current features
+Browser-based blueprint editor for the game **Rust**, independently designed and not affiliated with Facepunch Studios. Original vector illustrations and original interface assets; no copied game graphics.
 
-- Rust-style edge snapping: square ↔ equilateral triangle at the correct orientation, including slanted triangle edges.
-- Deterministic geometry core, tile overlap prevention, occupied-edge checks, transparent placement preview.
-- Separate floors (level 0 = foundation), optional underfloor silhouettes.
-- Wall, door frame, and window markers directly on real polygon edges.
-- Material and **manually measured** stability editing (`unknown` is distinct from `0%`).
-- Selection, eraser, keyboard shortcuts, pan/zoom, undo/redo, single-project IndexedDB autosave.
-- Versioned JSON export/import with geometry, schema, stability and collision checks.
-- A preloaded demo base and status/inspector panels.
+## Release v0.5 · Visual 2D/3D Studio
 
-**Not yet supported:** genuine Rust stability simulation, automatic candidate matching, raid calculations, 3D support, server database. The UI intentionally does not invent these outputs.
+- Fully **clickable grouped building catalog** (26 construction pieces and door inserts) with custom original icons. Each selection has a functional edit/place mode; no placeholder dropdown-only catalog.
+- Native **2D polygon floor planner**, **interactive 3D view**, and **split mode**. 3D uses Three.js from the *same* blueprint document. Drag to orbit, scroll to zoom, show selected floor or all floors, toggle exploded levels and optional speculative outer hull.
+- Rust-inspired original industrial/wasteland UI: dark steel panels, orange accents, site navigation, new hero vector art, dense readable tool cards and a right-side analysis panel.
+- Foundation elevation independently stored in wall-height units (e.g. +0.5 H); 3D displays these height differences and stacked floors.
+- Direct click on an existing edge opens its context menu for material, structure type, health, soft side and insert. Select a catalog wall/door first and click a polygon edge to place it directly.
+- Triangle or square as the **first** foundation. Selection, zoom/pan, undo/redo, floor switch, JSON import/export, and browser IndexedDB autosave remain available.
+- Right-side manual **raid target list** with selectable Rockets/C4 counts and sulfur for *explicitly selected targets* using named public reference data. Not an optimal-path algorithm. Missing/unsupported categories produce no invented number.
+- Stability dashboard shows only measurements actually entered. No fake physics or invented probability figures.
+- 34 deterministic Node tests for geometry, catalog, heights, persisted blueprint formats, and manual raid costs.
 
-## Direkt im Browser ausführen (GitHub Pages)
+### Current limitations (must not be presented as verified game mechanics)
 
-**Web-App (nach einmaliger Aktivierung von GitHub Pages):**
-https://erbi112.github.io/Rust-Stability-Raid-Calculator/
+1. **3D is a visualization**, not a Rust-valid building physics solver. Stairs, roof forms, and some door frame types have **schematic** geometry; some socket and height placements are not validated against the current game patch.
+2. The optional 3D **Hülle** toggle renders guessed outer-wall previews; this is **never** saved as factual building evidence.
+3. **Raid prices** use public reference tables for intact standard targets and simple additive manual paths, no partial-health damage simulation, splash damage, building collapse or automatic search for the cheapest route.
+4. Rust's exact stability, current patch variations, blueprint matching database, collaborative server storage, and automated raid optimization follow in larger future releases.
 
-Der vorhandene Workflow `Test, Build & Publish` prüft bei jedem Push auf `main` zuerst die Tests und den TypeScript-/Vite-Build. Nur wenn diese erfolgreich sind, wird die neue Webversion veröffentlicht. Pull Requests werden geprüft, aber nicht live geschaltet.
+### Raid reference sources
 
-**Einmalige Einrichtung durch den Repository-Inhaber:** Öffne [Settings → Pages](https://github.com/Erbi112/Rust-Stability-Raid-Calculator/settings/pages) und wähle unter **Build and deployment → Source** die Option **GitHub Actions**. Danach den Workflow unter **Actions → Test, Build & Publish → Run workflow** einmal ausführen, falls die Veröffentlichung nicht bereits erfolgreich war.
+- [Facepunch Rust Rocket reference](https://wiki.facepunch.com/rust/item/ammo.rocket.basic)
+- [Rust Wiki raid calculator](https://rust.wiki/calculators/raid)
+- [RustKit raid data](https://www.rustkit.app/raid/costs)
+- [RustEdit building piece reference](https://rustedit.rusthq.com/prefabs/building-tool)
 
-Die GitHub-Pages-Version ist eine rein clientseitige Anwendung: Die Daten werden lokal im Browser (IndexedDB) gespeichert, nicht im GitHub-Repository. Nutze den JSON-Export für Sicherung und Gerätewechsel. Weitere Hinweise: [Deployment-Dokumentation](docs/DEPLOYMENT.md).
+Because these sources can differ, reference counts and recipes should be patch-validated before anyone relies on exact calculations. The UI displays this distinction.
 
 ## Run locally
 
-Prerequisites: Node.js 22.16+ and npm.
+Node.js 22.16+ and npm required:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then visit the URL shown by Vite (normally `http://localhost:5173/`).
-
-### Quality checks
+For production testing:
 
 ```bash
 npm test
 npm run typecheck
 npm run build
+npm run preview
 ```
 
-GitHub Actions runs the three checks automatically for pushes and pull requests. If package downloads are blocked in your environment, the dependency-free domain tests (`npm test`) will still work and the [accepted v0.2 legacy editor](legacy/GHOSTFRAME_Editor_v0.2.html) opens directly as a local HTML file.
+## Deployment
 
-## Layout
+GitHub Pages is configured to deploy from **GitHub Actions**. Every push to `main` runs tests, TypeScript checks, a Vite build and publishes `dist/` on success. The app is stored only in the browser (IndexedDB) and JSON exports, not remotely on GitHub.
 
-- `src/core/geometry.ts` — rendering-independent geometry kernel
-- `src/core/editor.ts` — pure building operations (tiles, edges, snapshots, metadata)
-- `src/core/blueprint.ts` — versioned structure, stability observations, metadata
-- `src/services/persistence.ts` — IndexedDB and validated JSON import/export
-- `src/store/useEditor.ts` — Zustand editor state with Immer, undo/redo
-- `src/ui/App.tsx` — React Konva editor + modern UI
-- `tests/` — deterministic geometry/blueprint validation checks
-- `legacy/` — unchanged, user-approved v0.2 reference editor
+## Code layout
 
-## Roadmap
+- `src/core/geometry.ts` — geometric constraint kernel
+- `src/core/editor.ts` — pure building operations and edge placement
+- `src/core/blueprint.ts` — versioned blueprint, elevations and bunker states
+- `src/core/catalog.ts` — typed functional construction catalog
+- `src/core/raid.ts` — *manual route reference* cost calculations
+- `src/store/useEditor.ts` — state/history/import actions
+- `src/ui/App.tsx` — 2D studio, building catalog, navigation
+- `src/ui/ThreeBaseView.tsx` — orbitable multi-level 3D reconstruction
+- `src/ui/StructureIcon.tsx` — original catalog vector icons
+- `src/ui/AnalysisPanel.tsx` — direct sidebar calculations and status
+- `public/wasteland-header.svg` — original industrial hero vector landscape
+- `tests/` — geometry, state, catalog and cost regression tests
+- `legacy/` — preserved earlier user-approved prototype
 
-See [ROADMAP.md](ROADMAP.md), [architecture notes](docs/ARCHITEKTUR.md), and [release notes](docs/RELEASE-v0.3.md).
+See [ROADMAP.md](ROADMAP.md) and [v0.5 release notes](docs/RELEASE-v0.5.md).
 
-**Rules of engagement:** ship meaningful integrated blocks (implementation, tests, release), not endless individual micro-commits. No unauthorized scraping or unverified “probability” claims.
+**Development principle:** one complete integrated functional release block, then comprehensive regression test / CI deployment, then the next large block.

@@ -3,7 +3,7 @@ import { produce } from 'immer';
 import type { BlueprintDocument } from '../core/blueprint.ts';
 import type { Point, TileShape } from '../core/geometry.ts';
 import { attachTo, exampleProject, exampleBunkerProject, newProject, placeRoot, removeEntity, updateSelected, upsertWall,
-  type EdgeTarget, type EditorTool, type SelectedEntity } from '../core/editor.ts';
+  findEdgeRecord, type EdgeTarget, type EditorTool, type SelectedEntity } from '../core/editor.ts';
 import type { MaterialGrade, EdgeKind, SoftSide, BuildingKind, DoorInsert, HealthState } from '../core/blueprint.ts';
 
 const MAX_HISTORY=75;
@@ -25,9 +25,10 @@ interface EditorStore {
   loadBunkerExample:()=>void;
   hydrate:(doc:BlueprintDocument|null)=>void;
   setDocument:(doc:BlueprintDocument)=>void;
-  root:(shape:TileShape,at:Point,elevation?:number)=>boolean;
-  attach:(sourceId:string,index:number,shape:TileShape,relativeHeight?:number)=>boolean;
+  root:(shape:TileShape,at:Point,elevation?:number,kind?:BuildingKind)=>boolean;
+  attach:(sourceId:string,index:number,shape:TileShape,relativeHeight?:number,kind?:BuildingKind)=>boolean;
   wall:(target:EdgeTarget,kind:EdgeKind)=>void;
+  placeCatalogEdge:(target:EdgeTarget,kind:EdgeKind,insert?:DoorInsert)=>void;
   erase:()=>void;
   eraseTarget:(target:SelectedEntity)=>void;
   updateGrade:(grade:MaterialGrade)=>void;
@@ -58,15 +59,21 @@ export const useEditor=create<EditorStore>((set,get)=>({
   loadBunkerExample:()=>set({doc:exampleBunkerProject(),past:[],future:[],selected:null,floor:0,modifiedAt:Date.now(),tool:'inspect'}),
   hydrate:(doc)=>set({doc:doc??newProject(),isLoading:false,past:[],future:[],modifiedAt:0}),
   setDocument:(doc)=>set({doc,past:[],future:[],selected:null,floor:0,modifiedAt:Date.now(),tool:'inspect'}),
-  root:(shape,at,elevation)=>{
-    const s=get(),next=placeRoot(s.doc,s.floor,shape,at,uid(),elevation??s.floor);
+  root:(shape,at,elevation,kind)=>{
+    const s=get(),next=placeRoot(s.doc,s.floor,shape,at,uid(),elevation??s.floor,kind);
     if(!next)return false;set(commit(s,next));return true;
   },
-  attach:(sourceId,index,shape,relativeHeight=0)=>{
-    const s=get(),next=attachTo(s.doc,s.floor,sourceId,index,shape,uid(),relativeHeight);
+  attach:(sourceId,index,shape,relativeHeight=0,kind)=>{
+    const s=get(),next=attachTo(s.doc,s.floor,sourceId,index,shape,uid(),relativeHeight,kind);
     if(!next)return false;set(commit(s,next));return true;
   },
   wall:(target,kind)=>set(s=>commit(s,upsertWall(s.doc,target,kind,uid()))),
+  placeCatalogEdge:(target,kind,insert)=>set(s=>{
+    const staged=upsertWall(s.doc,target,kind,uid());
+    const record=findEdgeRecord(staged,target);
+    const next=insert&&record?updateSelected(staged,{type:'edge',id:record.id},{insert}):staged;
+    return {...commit(s,next),selected:record?{type:'edge' as const,id:record.id}:null,tool:'inspect' as const};
+  }),
   erase:()=>set(s=>({...commit(s,removeEntity(s.doc,s.selected)),selected:null})),
   eraseTarget:(target)=>set(s=>({...commit(s,removeEntity(s.doc,target)),selected:null})),
   updateGrade:(grade)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{grade}))),

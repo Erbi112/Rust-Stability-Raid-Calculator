@@ -1,315 +1,352 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { Circle, Group, Layer, Line, Rect, Stage, Text as KonvaText } from 'react-konva';
+import { Group, Layer, Line, Rect, Stage, Text as KonvaText } from 'react-konva';
 import type Konva from 'konva';
-import { Activity, ArrowDown, ArrowUp, Box, Check, ChevronDown, ChevronRight, CircleHelp,
-  Database, DoorOpen, Download, Eraser, Eye, FilePlus2, FolderOpen, Grid3X3, Layers3,
-  LockKeyhole, MousePointer2, Move, Pentagon, Redo2, RotateCcw, Save, ShieldAlert,
-  Square, Triangle, Hammer, TrendingUp, Undo2, X, ZoomIn, ZoomOut, Warehouse } from 'lucide-react';
+import { Activity, ArrowDown, ArrowUp, Check, ChevronRight, Database, Download,
+  FolderOpen, Grid3X3, Hammer, Layers3, Move, Redo2, RotateCcw,
+  Save, ShieldAlert, Square, Triangle, Undo2, X, ZoomIn, ZoomOut, Trash2, ChevronDown,
+  Home, Warehouse, Search, Boxes, Rocket, Settings2, BarChart3, Box as BoxIcon, Plus, MousePointer2,
+  Layers, PanelRightClose, Compass } from 'lucide-react';
 import { useEditor } from '../store/useEditor.ts';
-import BlueprintMenu, {BuildingCatalog, type ClickMenu} from './BlueprintMenu.tsx';
 import { type Point, type Polygon, type TileShape } from '../core/geometry.ts';
-import type { BuildingTile, BuildingEdge, EdgeKind, MaterialGrade } from '../core/blueprint.ts';
-import { findEdgeAt, findTileAt,
-  GRID_UNIT, MATERIAL_COLORS, MATERIAL_NAMES, nearSlot, slotsFor, stats, tilesOnFloor,
-  type EditorTool } from '../core/editor.ts';
+import { DOOR_INSERTS, REFERENCE_MAX_HP,
+  type BuildingTile, type BuildingEdge, type EdgeKind, type MaterialGrade, type SoftSide, type BuildingKind, type DoorInsert } from '../core/blueprint.ts';
+import { findEdgeAt, findEdgeRecord, findTileAt, nearSlot, slotsFor, stats, tilesOnFloor,
+  MATERIAL_COLORS, MATERIAL_NAMES, WALL_KIND_NAMES, TILE_KIND_NAMES, DOOR_NAMES,
+  type EdgeTarget } from '../core/editor.ts';
 import { exportProject, importProject, loadProject, saveProject } from '../services/persistence.ts';
+import { CATALOG, CATALOG_GROUPS, getCatalogPiece, type CatalogPiece } from '../core/catalog.ts';
+import { StructureIcon } from './StructureIcon.tsx';
+import { ThreeBaseView } from './ThreeBaseView.tsx';
+import { AnalysisPanel, type AnalysisTab } from './AnalysisPanel.tsx';
 
-const GRADE_KEYS:MaterialGrade[]=['twig','wood','stone','metal','armored','unknown'];
-const TOOL_INFO:{key:EditorTool;title:string;hint:string;icon:typeof Square;short:string}[]=[
-  {key:'inspect',title:'Auswählen',hint:'Bauteile und Eigenschaften',icon:MousePointer2,short:'V'},
-  {key:'square',title:'Quadrat',hint:'Bodenplatte / Fundament',icon:Square,short:'1'},
-  {key:'triangle',title:'Dreieck',hint:'Dreieckiges Bauteil',icon:Triangle,short:'2'},
-  {key:'wall',title:'Wand',hint:'An einer Kante bauen',icon:Layers3,short:'3'},
-  {key:'doorway',title:'Türrahmen',hint:'An einer Kante bauen',icon:DoorOpen,short:'4'},
-  {key:'window',title:'Fenster',hint:'An einer Kante bauen',icon:Grid3X3,short:'5'},
-  {key:'erase',title:'Entfernen',hint:'Ein Bauteil löschen',icon:Eraser,short:'X'},
-];
-const iconSize=18;
-const isPlacer=(t:EditorTool):t is TileShape=>t==='square'||t==='triangle';
-const wallKind=(t:EditorTool):EdgeKind|null=>t==='wall'?'wall':t==='doorway'?'doorway':t==='window'?'window':null;
+const MATERIALS:MaterialGrade[]=['twig','wood','stone','metal','armored','unknown'];
+const EDGES:EdgeKind[]=['wall','doorway','window','wall-frame','half-wall','low-wall'];
+const allKinds:BuildingKind[]=['foundation','floor','floor-frame','roof','foundation-steps','ramp','stairs-l','stairs-u','stairs-spiral','stairs-spiral-triangle'];
 const points=(p:Polygon)=>p.flatMap(v=>[v.x,v.y]);
 const centroid=(p:Polygon):Point=>({x:p.reduce((a,v)=>a+v.x,0)/p.length,y:p.reduce((a,v)=>a+v.y,0)/p.length});
-const pointLine=(a:Point,b:Point)=>[a.x,a.y,b.x,b.y];
+const heightText=(value:number|undefined)=>value===undefined?'?':`${value>=0?'+':''}${Number(value.toFixed(2))} H`;
+const hpFor=(grade:MaterialGrade)=>REFERENCE_MAX_HP[grade];
+const closePop=(setter:(v:ContextMenu|null)=>void)=>setter(null);
+type ContextMenu = {kind:'edge';target:EdgeTarget;px:number;py:number}|{kind:'tile';tileId:string;px:number;py:number};
 
-function ToolButton({tool,current,onClick}:{tool:typeof TOOL_INFO[number];current:EditorTool;onClick:(t:EditorTool)=>void}){
-  const Icon=tool.icon;
-  return <button type="button" className={'tool-item '+(tool.key===current?'active':'')} onClick={()=>onClick(tool.key)} title={tool.hint}>
-    <span className="tool-icon"><Icon size={iconSize}/></span>
-    <span className="tool-content"><strong>{tool.title}</strong><small>{tool.hint}</small></span>
-    <span className="keycap">{tool.short}</span>
-  </button>;
+function ValueEditor({value,onChange,min,max,step,placeholder}:{value:number|null|undefined;onChange:(n:number|null)=>void;min:number;max:number;step:number;placeholder?:string}){
+ return <input type="number" min={min} max={max} step={step} placeholder={placeholder??'Unbekannt'} value={value??''}
+  onChange={e=>{if(e.currentTarget.value===''){onChange(null);return;}const n=Number(e.currentTarget.value);if(Number.isFinite(n)&&n>=min&&n<=max)onChange(n);}}/>;
 }
-function SelectedProperties(){
-  const doc=useEditor(s=>s.doc),selected=useEditor(s=>s.selected);
-  const updateGrade=useEditor(s=>s.updateGrade),updateStability=useEditor(s=>s.updateStability);
-  const erase=useEditor(s=>s.erase);
-  const item=selected?(selected.type==='tile'?doc.tiles:doc.edges).find(t=>t.id===selected.id):null;
-  return <section className="inspector-section">
-    <div className="section-heading"><span>INSPEKTOR</span><Activity size={14}/></div>
-    {!item?<div className="empty-inspector"><MousePointer2 size={23}/><h3>Bauteil wählen</h3><p>Klicke auf eine Bodenplatte, eine Wand oder einen Türrahmen, um Material und gemessene Stabilität zu erfassen.</p></div>:<>
-      <div className="selected-header"><div className="selected-glyph">{selected?.type==='tile'?<Square size={19}/>:<Layers3 size={19}/>}</div><div><strong>{selected?.type==='tile'?(item as BuildingTile).shape==='square'?'Quadrat':'Dreieck':(item as BuildingEdge).kind}</strong><small>{item.id} · Ebene {item.floor}</small></div></div>
-      <label className="field-label" htmlFor="material">Material</label>
-      <select id="material" value={item.grade} onChange={e=>updateGrade(e.target.value as MaterialGrade)}>
-        {GRADE_KEYS.map(grade=><option value={grade} key={grade}>{MATERIAL_NAMES[grade]}</option>)}
-      </select>
-      <label className="field-label" htmlFor="stability">Gemessene Stabilität</label>
-      <div className="stability-field"><input id="stability" type="number" min="0" max="100" step="1" placeholder="Unbekannt" value={item.stability.percent??''} onChange={e=>{
-        if(e.target.value==='')updateStability(null);
-        else {const v=Number(e.target.value);if(Number.isFinite(v))updateStability(Math.min(100,Math.max(0,v)));}
-      }}/><span>%</span></div>
-      <p className="form-hint">Leeres Feld = unbekannt. Kein berechneter Wert.</p>
-      <button type="button" className="button danger" onClick={erase}><Eraser size={15}/> Bauteil entfernen</button>
+function ContextEditor({menu,onClose,onNotice,activePiece}:{menu:ContextMenu;onClose:()=>void;onNotice:(s:string)=>void;activePiece:CatalogPiece|null}){
+ const doc=useEditor(s=>s.doc),select=useEditor(s=>s.select),attach=useEditor(s=>s.attach);
+ const wall=useEditor(s=>s.wall),remove=useEditor(s=>s.eraseTarget);
+ const grade=useEditor(s=>s.updateGrade),stability=useEditor(s=>s.updateStability),health=useEditor(s=>s.updateHealth);
+ const soft=useEditor(s=>s.updateSoftSide),kind=useEditor(s=>s.updateTileKind);
+ const insert=useEditor(s=>s.updateInsert),elevation=useEditor(s=>s.updateElevation);
+ const [relative,setRelative]=useState(0);
+ const record=menu.kind==='tile'?doc.tiles.find(t=>t.id===menu.tileId):findEdgeRecord(doc,menu.target);
+ const isTile=menu.kind==='tile';
+ const tile=isTile?record as BuildingTile|undefined:undefined;
+ const edge=!isTile?record as BuildingEdge|undefined:undefined;
+ useEffect(()=>{setRelative(0);},[menu.kind,menu.px,menu.py]);
+ const startSelect=()=>{
+  if(record)select({type:isTile?'tile':'edge',id:record.id});
+ };
+ const selectEdgeType=(value:EdgeKind)=>{
+  if(menu.kind!=='edge')return;
+  wall(menu.target,value);
+  const e=findEdgeRecord(useEditor.getState().doc,menu.target);
+  if(e)select({type:'edge',id:e.id});
+ };
+ const change=(fn:()=>void)=>{startSelect();fn();};
+ const place=(shape:TileShape)=>{
+  if(menu.kind!=='edge')return;
+  if(attach(menu.target.tileId,menu.target.edgeIndex,shape,relative,activePiece?.category==='tile'&&activePiece.shape===shape?activePiece.tileKind:undefined)){
+   onNotice('Bauteil korrekt an Kante angefügt · Höhenversatz '+heightText(relative));onClose();
+  } else onNotice('Hier ist kein kollisionsfreier Anbau möglich.');
+ };
+ const eHeight=menu.kind==='edge'?doc.tiles.find(t=>t.id===menu.target.tileId)?.elevation:undefined;
+ return <div className="context-editor" style={{left:Math.max(8,Math.min(menu.px,window.innerWidth-690)),top:Math.max(52,Math.min(menu.py,window.innerHeight-620))}}
+    role="dialog" aria-label="Bauteil-Kontextmenü" onMouseDown={e=>e.stopPropagation()}>
+  <div className="context-title"><span><Hammer size={15}/> {isTile?'BAUTEIL BEARBEITEN':'KANTEN-MENÜ'}</span><button onClick={onClose} title="Schließen"><X size={17}/></button></div>
+  {!isTile&&<section className="context-section">
+    <div className="context-caption">AN DIESER KANTE ANBAUEN <span>Referenz {heightText(eHeight)}</span></div>
+    <div className="shape-row"><button onClick={()=>place('square')}><Square size={17}/> Quadrat</button><button onClick={()=>place('triangle')}><Triangle size={18}/> Dreieck</button></div>
+    <label className="field-label">Höhe relativ zum Nachbar-Fundament</label>
+    <div className="offset-pills">{[-1,-.5,0,.5,1].map(v=><button key={v} onClick={()=>setRelative(v)} className={relative===v?'picked':''}>{v>0?'+':''}{v} H</button>)}</div>
+    <p className="context-help">H = volle Wandhöhe, 0,5 H = halbe Wandhöhe. Die Position wird im Blueprint als eigener Z-Wert gespeichert.</p>
+  </section>}
+  {!isTile&&<section className="context-section">
+    <div className="context-caption">WAND / ÖFFNUNG / RAHMEN</div>
+    <div className="part-pills">{EDGES.map(k=><button key={k} onClick={()=>selectEdgeType(k)} className={edge?.kind===k?'picked':''}>{WALL_KIND_NAMES[k]}</button>)}</div>
+  </section>}
+  {record&&<section className="context-section">
+    <div className="context-caption">EIGENSCHAFTEN <span>#{record.id.slice(0,8)}</span></div>
+    {tile&&<><label className="field-label">Bauteilart</label><select value={tile.kind} onChange={e=>change(()=>kind(e.target.value as BuildingKind))}>
+      {allKinds.map(k=><option key={k} value={k}>{TILE_KIND_NAMES[k]}</option>)}<option value="unknown">Unbekannt</option>
+    </select><label className="field-label">Absolute Oberkante / Höhe (H)</label>
+      <div className="height-row"><button onClick={()=>change(()=>elevation(Math.max(-100,(tile.elevation??tile.floor)-.5)))}>− ½ H</button>
+      <ValueEditor value={tile.elevation??null} min={-100} max={100} step={.25} onChange={v=>v!==null&&change(()=>elevation(v))}/>
+      <button onClick={()=>change(()=>elevation(Math.min(100,(tile.elevation??tile.floor)+.5)))}>+ ½ H</button></div>
+      <p className="context-help">Verschiedene Höhen direkt angrenzender Fundamente werden separat erfasst. Terrain- und Rust-Socket-Prüfungen folgen.</p>
     </>}
-  </section>;
+    <label className="field-label">Material</label><select value={record.grade} onChange={e=>change(()=>grade(e.target.value as MaterialGrade))}>
+      {MATERIALS.map(m=><option value={m} key={m}>{MATERIAL_NAMES[m]}</option>)}
+    </select>
+    <div className="input-dual"><div><label className="field-label">Aktuelle HP</label><ValueEditor value={record.health?.current} min={0} max={20000} step={1} onChange={v=>change(()=>health({current:v,max:record.health?.max??hpFor(record.grade)}))}/></div>
+    <div><label className="field-label">Maximale HP</label><ValueEditor value={record.health?.max} min={0} max={20000} step={1} onChange={v=>change(()=>health({current:Math.min(record.health?.current??0,v??0),max:v}))}/></div></div>
+    <label className="field-label">Gemessene Stabilität in %</label>
+    <ValueEditor value={record.stability.percent} min={0} max={100} step={1} onChange={v=>change(()=>stability(v))}/>
+    <label className="field-label">Soft-Side-Ausrichtung</label>
+    <select value={record.softSide??'unknown'} onChange={e=>change(()=>soft(e.target.value as SoftSide))}>
+      {(isTile?['up','down','unknown']:['left','right','unknown']).map(v=><option key={v} value={v}>{v==='left'?'Linke Seite A→B':v==='right'?'Rechte Seite A→B':v==='up'?'Oben':v==='down'?'Unten':'Unbekannt'}</option>)}
+    </select>
+    {edge&&<><label className="field-label">Tür / Einbau</label><select value={edge.insert??'none'} onChange={e=>change(()=>insert(e.target.value as DoorInsert))}>
+      {DOOR_INSERTS.map(k=><option key={k} value={k}>{DOOR_NAMES[k]}</option>)}
+    </select><p className="context-help">Einbau- und Rahmentyp müssen für eine vollständige Rust-Prüfung später zusammenpassen.</p></>}
+    {tile&&tile.kind!=='foundation'&&tile.kind!=='floor'&&<p className="context-help warning">Schematische 2D-Projektion: 3D-Form und Spiellogik für dieses Bauteil sind noch nicht validiert.</p>}
+    <button className="remove-action" onClick={()=>{remove({type:isTile?'tile':'edge',id:record.id});onClose();}}><Trash2 size={15}/> Bauteil entfernen</button>
+  </section>}
+  {!record&&isTile&&<p>Bauteil nicht vorhanden.</p>}
+ </div>;
 }
-function EditorCanvas(){
-  const doc=useEditor(s=>s.doc),floor=useEditor(s=>s.floor),tool=useEditor(s=>s.tool);
-  const selected=useEditor(s=>s.selected),select=useEditor(s=>s.select),attach=useEditor(s=>s.attach);
-  const root=useEditor(s=>s.root);
-  const wrapper=useRef<HTMLDivElement>(null),stage=useRef<Konva.Stage>(null);
-  const isPan=useRef(false),panStart=useRef<Point|null>(null),skipClick=useRef(false);
-  const [dimensions,setDimensions]=useState({width:900,height:650});
-  const [camera,setCamera]=useState({x:450,y:325,scale:1});
-  const [pointer,setPointer]=useState<Point|null>(null);
-  const [menu,setMenu]=useState<ClickMenu|null>(null);
-  const [rootHeight,setRootHeight]=useState(0);
-  const [contextNotice,setContextNotice]=useState<string|null>(null);
-  const [showBelow,setShowBelow]=useState(true);
-  const [showGrid,setShowGrid]=useState(true);
-  useEffect(()=>{
-    const node=wrapper.current;if(!node)return;
-    const observer=new ResizeObserver(entries=>{
-      const rect=entries[0]?.contentRect;if(!rect)return;
-      setDimensions({width:Math.max(260,Math.floor(rect.width)),height:Math.max(220,Math.floor(rect.height))});
-      setCamera(prev=>({ ...prev,x:prev.x+(rect.width-(node.dataset.previousWidth?Number(node.dataset.previousWidth):900))/2,
-        y:prev.y+(rect.height-(node.dataset.previousHeight?Number(node.dataset.previousHeight):650))/2 }));
-      node.dataset.previousWidth=String(rect.width);node.dataset.previousHeight=String(rect.height);
-    });observer.observe(node);return ()=>observer.disconnect();
-  },[]);
-  const tiles=useMemo(()=>tilesOnFloor(doc,floor),[doc,floor]);
-  const below=useMemo(()=>tilesOnFloor(doc,floor-1),[doc,floor]);
-  const slots=useMemo(()=>isPlacer(tool)?slotsFor(doc,floor,tool):[],[doc,floor,tool]);
-  const activeSlot=useMemo(()=>pointer&&isPlacer(tool)?nearSlot(slots,pointer):null,[pointer,slots,tool]);
-  const edgeTarget=useMemo(()=>pointer&&wallKind(tool)?findEdgeAt(doc,floor,pointer,15/camera.scale):null,[pointer,tool,doc,floor,camera.scale]);
-  // Root preview does not need a placeholder tile in the document.
-  const firstPolygon=useMemo(()=>{
-    if(!pointer||tiles.length||!isPlacer(tool))return null;
-    const h=GRID_UNIT/2;
-    return tool==='square'?
-      [{x:pointer.x-h,y:pointer.y-h},{x:pointer.x+h,y:pointer.y-h},{x:pointer.x+h,y:pointer.y+h},{x:pointer.x-h,y:pointer.y+h}]:
-      [{x:pointer.x,y:pointer.y-GRID_UNIT/Math.sqrt(3)},
-       {x:pointer.x+h,y:pointer.y+GRID_UNIT/(2*Math.sqrt(3))},
-       {x:pointer.x-h,y:pointer.y+GRID_UNIT/(2*Math.sqrt(3))}];
-  },[pointer,tiles.length,tool]);
-  const getWorld=useCallback(()=>{
-    const p=stage.current?.getPointerPosition();
-    return p?{x:(p.x-camera.x)/camera.scale,y:(p.y-camera.y)/camera.scale}:null;
-  },[camera]);
-  const handleMove=()=>{
-    const p=stage.current?.getPointerPosition();if(!p)return;
-    if(isPan.current&&panStart.current){
-      const delta={x:p.x-panStart.current.x,y:p.y-panStart.current.y};
-      if(Math.abs(delta.x)+Math.abs(delta.y)>2)skipClick.current=true;
-      setCamera(cam=>({...cam,x:cam.x+delta.x,y:cam.y+delta.y}));panStart.current=p;return;
-    }
-    setPointer(getWorld());
-  };
-  const handleClick=()=>{
-    if(skipClick.current){skipClick.current=false;return;}
-    const at=getWorld();if(!at)return;
-    const screen=stage.current?.getPointerPosition()??{x:150,y:150};
-    // A direct edge click always opens the contextual Rust construction menu.
-    const edge=findEdgeAt(doc,floor,at,Math.min(19/camera.scale,22));
-    if(edge){setMenu({kind:'edge',target:edge,x:screen.x+12,y:screen.y+12});return;}
-    const foundTile=findTileAt(doc,floor,at);
-    if(foundTile){
-      select({type:'tile',id:foundTile.id});
-      setMenu({kind:'tile',id:foundTile.id,x:screen.x+12,y:screen.y+12});
-      return;
-    }
-    if(isPlacer(tool)){
-      if(tiles.length===0){root(tool,at,rootHeight);useEditor.getState().setTool('inspect');return;}
-      const slot=nearSlot(slots,at);
-      if(slot){attach(slot.sourceId,slot.edgeIndex,tool);useEditor.getState().setTool('inspect');}
-    }
-    setMenu(null);
-  };
-  const handleWheel=(event:Konva.KonvaEventObject<WheelEvent>)=>{
-    event.evt.preventDefault();const p=stage.current?.getPointerPosition();if(!p)return;
-    const newScale=Math.max(.25,Math.min(4,camera.scale*(event.evt.deltaY>0?.9:1.1)));
-    setCamera({scale:newScale,x:p.x-(p.x-camera.x)*newScale/camera.scale,y:p.y-(p.y-camera.y)*newScale/camera.scale});
-  };
-  const zoom=(factor:number)=>setCamera(v=>{
-    const z=Math.min(4,Math.max(.25,v.scale*factor));
-    return {scale:z,x:dimensions.width/2-(dimensions.width/2-v.x)*z/v.scale,y:dimensions.height/2-(dimensions.height/2-v.y)*z/v.scale};
-  });
-  const hitPoint=pointer??{x:0,y:0};
-  const gridLines=useMemo(()=>{
-    const lines:{points:number[];heavy:boolean}[]=[];
-    for(let i=-40;i<=40;i++){
-      const v=i*GRID_UNIT/2;
-      lines.push({points:[v,-4000,v,4000],heavy:i%2===0});
-      lines.push({points:[-4000,v,4000,v],heavy:i%2===0});
-    }
-    return lines;
-  },[]);
-  return <div className="canvas-wrapper" ref={wrapper}>
-    <div className="canvas-top-left"><span className="live-dot"/> <strong>BLUEPRINT EDITOR</strong><span className="canvas-separator"/> Ebene {floor} <span className="canvas-separator"/> {tiles.length} Flächen</div>
-    <div className="canvas-top-right">
-      <button type="button" title="Raster ein-/ausblenden" className={showGrid?'active':''} onClick={()=>setShowGrid(v=>!v)}><Grid3X3 size={15}/></button>
-      <button type="button" title="Untergeschoss ein-/ausblenden" className={showBelow?'active':''} onClick={()=>setShowBelow(v=>!v)}><Layers3 size={15}/></button>
-    </div>
-    <Stage width={dimensions.width} height={dimensions.height} x={camera.x} y={camera.y}
-      scaleX={camera.scale} scaleY={camera.scale} ref={stage}
-      onMouseMove={handleMove} onTouchMove={handleMove} onMouseLeave={()=>setPointer(null)}
-      onMouseDown={e=>{if(e.evt.button===1||e.evt.button===2||e.evt.altKey){isPan.current=true;panStart.current=stage.current?.getPointerPosition()??null;}}}
-      onMouseUp={()=>{isPan.current=false;panStart.current=null;}}
-      onClick={handleClick} onTap={handleClick} onWheel={handleWheel}
-      onContextMenu={e=>e.evt.preventDefault()}>
-      <Layer listening={false}>
-        <Rect x={-5000} y={-5000} width={10000} height={10000} fill="#1d1e1b"/>
-        {showGrid&&gridLines.map((l,i)=><Line key={i} points={l.points} stroke={l.heavy?'#655548':'#493f38'} opacity={l.heavy?.32:.18} strokeWidth={.7/camera.scale}/>)}
-        {showGrid&&<><Line points={[-4000,0,4000,0]} stroke="#78624c" opacity={.3}/><Line points={[0,-4000,0,4000]} stroke="#78624c" opacity={.3}/></>}
-        {floor>0&&showBelow&&below.map(t=><Line key={'below'+t.id} points={points(t.polygon)} closed fill="#564535" opacity={.25} dash={[6,5]} stroke="#a6886b" strokeWidth={1.3/camera.scale}/>)}
-        {tiles.map(tile=><Group key={tile.id}>
-          <Line points={points(tile.polygon)} closed fill={MATERIAL_COLORS[tile.grade]} opacity={.48}
-            stroke={selected?.type==='tile'&&selected.id===tile.id?'#ffe39b':'#caa582'}
-            strokeWidth={(selected?.type==='tile'&&selected.id===tile.id?4:1.8)/camera.scale}/>
-          <Line points={points(tile.polygon)} closed stroke="#d3ae87" opacity={.12} strokeWidth={.5/camera.scale}/>
-          <KonvaText x={centroid(tile.polygon).x-24} y={centroid(tile.polygon).y-16} width={48}
-            text={tile.elevation===undefined?'H ?':`H ${tile.elevation>=0?'+':''}${tile.elevation}`} align="center"
-            fill="#ffd5ac" fontSize={11} fontStyle="bold"/>
-          <KonvaText x={centroid(tile.polygon).x-22} y={centroid(tile.polygon).y+2} width={44}
-            text={tile.stability.percent===null?'—':`${tile.stability.percent}%`} align="center"
-            fill={tile.stability.percent===null?'#c0ac96':'#ffe3c4'} fontSize={13/camera.scale>18?18:13}
-            fontStyle="bold"/>
-        </Group>)}
-        {doc.edges.filter(w=>w.floor===floor).map(w=><Group key={w.id}>
-          <Line points={pointLine(w.a,w.b)} stroke="#161411" strokeWidth={11/camera.scale} lineCap="round"/>
-          {w.kind==='doorway'?<>
-            <Line points={[w.a.x,w.a.y,w.a.x+(w.b.x-w.a.x)*.26,w.a.y+(w.b.y-w.a.y)*.26]} stroke="#dca477" strokeWidth={6/camera.scale} lineCap="round"/>
-            <Line points={[w.b.x,w.b.y,w.b.x+(w.a.x-w.b.x)*.26,w.b.y+(w.a.y-w.b.y)*.26]} stroke="#dca477" strokeWidth={6/camera.scale} lineCap="round"/>
-            <Circle x={(w.a.x+w.b.x)/2} y={(w.a.y+w.b.y)/2} radius={4/camera.scale} fill="#dca477"/>
-          </>:<Line points={pointLine(w.a,w.b)} stroke={w.kind==='window'?'#bdab95':'#eed0ac'} strokeWidth={w.kind==='window'?4/camera.scale:7/camera.scale} dash={w.kind==='window'?[8,4]:undefined} lineCap="round"/>}
-          {selected?.type==='edge'&&selected.id===w.id&&<Line points={pointLine(w.a,w.b)} stroke="#ebad80" strokeWidth={2.5/camera.scale} dash={[3,4]}/>}
-        </Group>)}
-        {isPlacer(tool)&&slots.map((slot,i)=><Line key={'slot'+i} points={points(slot.polygon)} closed
-          fill="#d5a16f" opacity={.03} stroke="#a87b56" strokeWidth={1/camera.scale} dash={[5,7]}/>)}
-        {isPlacer(tool)&&(activeSlot||firstPolygon)&&<Line points={points(activeSlot?.polygon??firstPolygon!)} closed
-          fill="#d98b58" opacity={.27} stroke="#e2a372" strokeWidth={2.4/camera.scale} dash={[6,3]}/>}
-        {wallKind(tool)&&edgeTarget&&<Line points={pointLine(edgeTarget.a,edgeTarget.b)} stroke="#ffcf8a" strokeWidth={7/camera.scale}/>}
-        {(tool==='square'||tool==='triangle')&&pointer&&<Circle x={hitPoint.x} y={hitPoint.y} radius={3/camera.scale} fill="#dd9866" opacity={.65}/>}
-      </Layer>
-    </Stage>
-    <div className="canvas-bottom-left"><span className="chip"><Move size={12}/> Mittlere Maustaste: verschieben</span><span className="chip">Mausrad: zoomen</span></div>
-    <div className="canvas-bottom-right">
-      <button onClick={()=>zoom(1/1.2)} title="Verkleinern"><ZoomOut size={16}/></button>
-      <span>{Math.round(camera.scale*100)}%</span>
-      <button onClick={()=>zoom(1.2)} title="Vergrößern"><ZoomIn size={16}/></button>
-      <button title="Zentrieren" onClick={()=>setCamera({scale:1,x:dimensions.width/2,y:dimensions.height/2})}><RotateCcw size={15}/></button>
-    </div>
-    {tiles.length===0&&tool==='inspect'&&<div className="canvas-empty"><Box size={32}/><h3>Neue Base konstruieren</h3>
-      <p>Wähle deine Startform. Fundamente und Dreiecke lassen sich anschließend an gemeinsamen Kanten anfügen.</p>
-      <div className="start-shapes">
-        <button onClick={()=>useEditor.getState().setTool('square')}><Square size={18}/> Quadrat</button>
-        <button onClick={()=>useEditor.getState().setTool('triangle')}><Triangle size={18}/> Dreieck</button>
-      </div>
-      <label className="field-label">Start-Fundamenthöhe (volle Wandhöhen)</label>
-      <div className="rust-steps">{[-.5,0,.5,1].map(v=><button key={v} className={rootHeight===v?'chosen':''} onClick={()=>setRootHeight(v)}>{v>0?'+':''}{v}</button>)}</div>
-      <p>Danach auf die freie Baufläche klicken.</p>
-    </div>}
-    {menu&&<BlueprintMenu menu={menu} close={()=>setMenu(null)} notice={setContextNotice}/>}
-    {contextNotice&&<div className="context-toast">{contextNotice}<button onClick={()=>setContextNotice(null)} aria-label="Meldung schließen">×</button></div>}
-  </div>;
+
+function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:string)=>void;activePiece:CatalogPiece|null;
+ onSelectPiece:(id:string|null)=>void;onApplied:()=>void}){
+ const doc=useEditor(s=>s.doc),floor=useEditor(s=>s.floor),tool=useEditor(s=>s.tool),setTool=useEditor(s=>s.setTool);
+ const selected=useEditor(s=>s.selected),select=useEditor(s=>s.select),attach=useEditor(s=>s.attach),root=useEditor(s=>s.root);
+ const wrapper=useRef<HTMLDivElement>(null),stage=useRef<Konva.Stage>(null),pan=useRef(false),start=useRef<Point|null>(null),skip=useRef(false);
+ const [size,setSize]=useState({w:950,h:660}),[camera,setCamera]=useState({x:475,y:330,scale:1});
+ const [pointer,setPointer]=useState<Point|null>(null),[menu,setMenu]=useState<ContextMenu|null>(null);
+ const [grid,setGrid]=useState(true),[below,setBelow]=useState(true),[rootHeight,setRootHeight]=useState(0);
+ useEffect(()=>{
+  const node=wrapper.current;if(!node)return;
+  const observer=new ResizeObserver(([entry])=>{
+   if(!entry)return;
+   setSize(s=>{const w=Math.max(300,entry.contentRect.width),h=Math.max(300,entry.contentRect.height);
+    setCamera(c=>({...c,x:c.x+(w-s.w)/2,y:c.y+(h-s.h)/2}));return {w,h};});
+  });observer.observe(node);return ()=>observer.disconnect();
+ },[]);
+ const tiles=useMemo(()=>tilesOnFloor(doc,floor),[doc,floor]);
+ const slots=useMemo(()=>tool==='square'||tool==='triangle'?slotsFor(doc,floor,tool):[],[doc,floor,tool]);
+ const slot=useMemo(()=>pointer?nearSlot(slots,pointer):null,[slots,pointer]);
+ const world=useCallback(()=>{const q=stage.current?.getPointerPosition();return q?{x:(q.x-camera.x)/camera.scale,y:(q.y-camera.y)/camera.scale}:null;},[camera]);
+ const screen=()=>stage.current?.getPointerPosition()??{x:140,y:140};
+ const mouseMove=()=>{
+  const p=screen();if(pan.current&&start.current){const dx=p.x-start.current.x,dy=p.y-start.current.y;
+   if(Math.abs(dx)+Math.abs(dy)>2)skip.current=true;
+   setCamera(c=>({...c,x:c.x+dx,y:c.y+dy}));start.current=p;return;}
+  setPointer(world());
+ };
+ const click=()=>{
+  if(skip.current){skip.current=false;return;}
+  const at=world();if(!at)return;
+  const q=screen();
+  const near=findEdgeAt(doc,floor,at,Math.min(17/camera.scale,23));
+  if(near){
+    if(activePiece?.category==='edge'&&activePiece.edgeKind){useEditor.getState().placeCatalogEdge(near,activePiece.edgeKind);onApplied();}
+    else if(activePiece?.category==='insert'&&activePiece.insert){useEditor.getState().placeCatalogEdge(near,activePiece.insert==='garage-door'?'wall-frame':'doorway',activePiece.insert);onApplied();}
+    else {const existing=findEdgeRecord(doc,near);if(existing)select({type:'edge',id:existing.id});}
+    setMenu({kind:'edge',target:near,px:q.x+12,py:q.y+10});return;}
+  const t=findTileAt(doc,floor,at);
+  if(t){select({type:'tile',id:t.id});setMenu({kind:'tile',tileId:t.id,px:q.x+12,py:q.y+10});return;}
+  if(tool==='square'||tool==='triangle'){
+   if(!tiles.length){root(tool,at,rootHeight,activePiece?.category==='tile'?activePiece.tileKind:undefined);setTool('inspect');onApplied();return;}
+   const nearest=nearSlot(slots,at);
+   if(nearest){const success=attach(nearest.sourceId,nearest.edgeIndex,tool,0,activePiece?.category==='tile'?activePiece.tileKind:undefined);if(success){setTool('inspect');onApplied();}else notify('Bauteil überschneidet vorhandene Geometrie.');}
+  }
+  setMenu(null);
+ };
+ const wheel=(e:Konva.KonvaEventObject<WheelEvent>)=>{
+  e.evt.preventDefault();const p=screen(),z=Math.min(4,Math.max(.25,camera.scale*(e.evt.deltaY>0?.9:1.1)));
+  setCamera({x:p.x-(p.x-camera.x)*z/camera.scale,y:p.y-(p.y-camera.y)*z/camera.scale,scale:z});
+ };
+ const zoom=(f:number)=>setCamera(c=>{const z=Math.max(.25,Math.min(4,c.scale*f));return {x:size.w/2-(size.w/2-c.x)*z/c.scale,y:size.h/2-(size.h/2-c.y)*z/c.scale,scale:z};});
+ const gr=useMemo(()=>Array.from({length:111},(_,i)=>i-55),[]);
+ const rootPreview=pointer&&!tiles.length&&(tool==='square'||tool==='triangle')?{
+  square:[{x:pointer.x-50,y:pointer.y-50},{x:pointer.x+50,y:pointer.y-50},{x:pointer.x+50,y:pointer.y+50},{x:pointer.x-50,y:pointer.y+50}],
+  triangle:[{x:pointer.x,y:pointer.y-100/Math.sqrt(3)},{x:pointer.x+50,y:pointer.y+50/Math.sqrt(3)},{x:pointer.x-50,y:pointer.y+50/Math.sqrt(3)}]
+ }[tool]:null;
+ return <div className="canvas-wrapper" ref={wrapper}>
+  <div className="canvas-top-left"><span className="live-dot"/><strong>BAUPLAN · DRAUFSICHT</strong><span className="canvas-separator"/> Geschoss {floor}<span className="canvas-separator"/>{tiles.length} Bauteile</div>
+  <div className="canvas-top-right"><button title="Raster" onClick={()=>setGrid(!grid)} className={grid?'active':''}><Grid3X3 size={16}/></button>
+   <button title="Unterliegende Ebene" onClick={()=>setBelow(!below)} className={below?'active':''}><Layers3 size={16}/></button></div>
+  <Stage ref={stage} width={size.w} height={size.h} x={camera.x} y={camera.y} scaleX={camera.scale} scaleY={camera.scale}
+   onMouseMove={mouseMove} onTouchMove={mouseMove} onMouseLeave={()=>setPointer(null)} onWheel={wheel} onClick={click} onTap={click}
+   onMouseDown={e=>{if([1,2].includes(e.evt.button)||e.evt.altKey){pan.current=true;start.current=screen();}}}
+   onMouseUp={()=>{pan.current=false;start.current=null;}} onContextMenu={e=>e.evt.preventDefault()}>
+   <Layer listening={false}>
+     <Rect x={-7000} y={-7000} width={14000} height={14000} fill="#20272a"/>
+     {grid&&gr.flatMap((i)=>[
+       <Line key={'x'+i} points={[i*50,-5000,i*50,5000]} stroke={i%2===0?'#68777c':'#5f6b70'} opacity={i%2===0?.28:.14} strokeWidth={1/camera.scale}/>,
+       <Line key={'y'+i} points={[-5000,i*50,5000,i*50]} stroke={i%2===0?'#68777c':'#5f6b70'} opacity={i%2===0?.28:.14} strokeWidth={1/camera.scale}/>])}
+     {floor>0&&below&&tilesOnFloor(doc,floor-1).map(t=><Line key={'b'+t.id} points={points(t.polygon)} closed fill="#857866" opacity={.12} dash={[4,6]} stroke="#98836e"/>)}
+     {tiles.map(t=>{const c=centroid(t.polygon),selectedTile=selected?.type==='tile'&&selected.id===t.id;
+       return <Group key={t.id}>
+         <Line points={points(t.polygon)} closed fill={MATERIAL_COLORS[t.grade]} opacity={.78} stroke={selectedTile?'#f7c78c':'#ae9c87'} strokeWidth={(selectedTile?4:2)/camera.scale}/>
+         <Line points={points(t.polygon)} closed dash={[3,6]} stroke="#e3c7a3" opacity={.18} strokeWidth={.7/camera.scale}/>
+         <KonvaText x={c.x-34} y={c.y-18} width={68} align="center" text={heightText(t.elevation)} fontSize={12} fontStyle="bold" fill="#f7ddba"/>
+         <KonvaText x={c.x-28} y={c.y+3} width={56} align="center" text={t.stability.percent===null?'STB ?':`STB ${t.stability.percent}%`} fontSize={9} fill="#dbcbb6"/>
+       </Group>;
+     })}
+     {doc.edges.filter(e=>e.floor===floor).map(e=><Group key={e.id}>
+       <Line points={[e.a.x,e.a.y,e.b.x,e.b.y]} stroke="#0a0a09" strokeWidth={11/camera.scale} lineCap="round"/>
+       <Line points={[e.a.x,e.a.y,e.b.x,e.b.y]} stroke={e.kind==='doorway'?'#e58d58':e.kind==='window'?'#8ea0a3':'#d1b793'} strokeWidth={5/camera.scale} dash={e.kind==='doorway'?[7,5]:e.kind==='window'?[3,4]:undefined}/>
+     </Group>)}
+     {(tool==='square'||tool==='triangle')&&slots.map((s,i)=><Line key={'s'+i} points={points(s.polygon)} closed stroke="#ad946f" opacity={.3} dash={[6,5]} strokeWidth={1/camera.scale}/>)}
+     {(slot||rootPreview)&&<Line points={points(slot?.polygon??rootPreview!)} closed fill="#dd8a4b" opacity={.23} stroke="#f9a062" dash={[6,3]} strokeWidth={2/camera.scale}/>}
+   </Layer>
+  </Stage>
+  <div className="canvas-bottom-left"><span className="chip"><Move size={13}/> Rechte/Mittlere Maustaste: verschieben</span><span className="chip">Kante anklicken → Bau-Menü</span></div>
+  <div className="canvas-bottom-right"><button onClick={()=>zoom(1/1.2)} title="Verkleinern"><ZoomOut size={16}/></button><span>{Math.round(camera.scale*100)}%</span>
+    <button onClick={()=>zoom(1.2)} title="Vergrößern"><ZoomIn size={16}/></button><button title="Zentrieren" onClick={()=>setCamera({x:size.w/2,y:size.h/2,scale:1})}><RotateCcw size={15}/></button></div>
+  {tiles.length===0&&tool==='inspect'&&<div className="canvas-empty"><Hammer size={30}/><h3>NEUE BASE KONSTRUIEREN</h3><p>Starte mit einem quadratischen oder dreieckigen Fundament. Alle weiteren Bauteile docken an vorhandene Kanten an.</p>
+    <div className="empty-options"><button onClick={()=>onSelectPiece('foundation-square')}><Square size={21}/> Quadrat</button><button onClick={()=>onSelectPiece('foundation-triangle')}><Triangle size={22}/> Dreieck</button></div>
+    <label className="field-label">Start-Fundamenthöhe (H)</label><div className="offset-pills">{[-.5,0,.5,1].map(v=><button className={rootHeight===v?'picked':''} key={v} onClick={()=>setRootHeight(v)}>{v>0?'+':''}{v}</button>)}</div>
+    <p className="context-help">Dann auf die freie Fläche klicken.</p></div>}
+  {menu&&<ContextEditor menu={menu} onClose={()=>closePop(setMenu)} onNotice={notify} activePiece={activePiece}/>}
+ </div>;
 }
+type ViewMode='2d'|'3d'|'split';
+type Module='studio'|'dashboard'|'library'|'raid'|'stability'|'settings';
+const NAV_ITEMS:{id:Module;label:string;icon:typeof Home}[]=[
+  {id:'dashboard',label:'Dashboard',icon:Home},{id:'studio',label:'Canvas Studio',icon:BoxIcon},
+  {id:'library',label:'Blueprint Library',icon:Layers},{id:'raid',label:'Raid Calculator',icon:Rocket},
+  {id:'stability',label:'Stability',icon:Activity},{id:'settings',label:'Settings',icon:Settings2}
+];
 function App(){
-  const doc=useEditor(s=>s.doc),tool=useEditor(s=>s.tool),setTool=useEditor(s=>s.setTool);
-  const floor=useEditor(s=>s.floor),setFloor=useEditor(s=>s.setFloor),undo=useEditor(s=>s.undo),redo=useEditor(s=>s.redo);
-  const past=useEditor(s=>s.past),future=useEditor(s=>s.future),modifiedAt=useEditor(s=>s.modifiedAt);
-  const startNew=useEditor(s=>s.startNew),loadExample=useEditor(s=>s.loadExample),loadBunkerExample=useEditor(s=>s.loadBunkerExample),setDocument=useEditor(s=>s.setDocument);
-  const rename=useEditor(s=>s.rename),hydrate=useEditor(s=>s.hydrate),isLoading=useEditor(s=>s.isLoading);
-  const fileInput=useRef<HTMLInputElement>(null);
-  const [saved,setSaved]=useState<'saved'|'saving'|'error'>('saved');
-  const [notice,setNotice]=useState<string|null>(null);
-  const [showHelp,setShowHelp]=useState(false);
-  const numbers=stats(doc,floor);
-  useEffect(()=>{let cancelled=false;loadProject().then(saved=>{if(!cancelled)hydrate(saved);}).catch(()=>{if(!cancelled)hydrate(null);});return()=>{cancelled=true;};},[hydrate]);
-  useEffect(()=>{
-    if(isLoading||!modifiedAt)return;
-    setSaved('saving');
-    const timer=setTimeout(()=>saveProject(doc).then(()=>setSaved('saved')).catch(()=>setSaved('error')),550);
-    return()=>clearTimeout(timer);
-  },[doc,modifiedAt,isLoading]);
-  useEffect(()=>{
-    const listener=(e:KeyboardEvent)=>{
-      const target=e.target as HTMLElement|null;
-      if(target&&['INPUT','TEXTAREA','SELECT'].includes(target.tagName))return;
-      if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){
-        e.preventDefault();if(e.shiftKey)redo();else undo();return;
-      }
-      if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return;}
-      if(e.key==='Escape'){setTool('inspect');return;}
-      const keys:Record<string,EditorTool>={v:'inspect','1':'square','2':'triangle','3':'wall','4':'doorway','5':'window',x:'erase'};
-      const t=keys[e.key.toLowerCase()];if(t)setTool(t);
-      if(e.key==='PageUp')setFloor(floor+1);
-      if(e.key==='PageDown')setFloor(floor-1);
-    };
-    window.addEventListener('keydown',listener);return()=>window.removeEventListener('keydown',listener);
-  },[setTool,setFloor,floor,undo,redo]);
-  const openFile=async(e:ChangeEvent<HTMLInputElement>)=>{
-    const file=e.currentTarget.files?.[0];e.currentTarget.value='';if(!file)return;
-    try{const parsed=await importProject(file);setDocument(parsed);setNotice('Blueprint importiert und geprüft.');}
-    catch(error){setNotice(error instanceof Error?error.message:'Import fehlgeschlagen.');}
-  };
-  return <div className="app-shell">
-    <header className="topbar">
-      <div className="brand"><div className="brand-mark"><Pentagon size={22}/></div><div><strong>GHOSTFRAME</strong><small>RUST · STRUCTURAL INTELLIGENCE</small></div></div>
-      <div className="top-center"><span className="file-dot"/><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.4</span></div>
-      <div className="top-actions">
-        <span className={'save-state '+saved}><Save size={13}/>{saved==='saved'?'Gespeichert':saved==='saving'?'Speichert …':'Lokales Speichern nicht verfügbar'}</span>
-        <button className="icon-button" onClick={undo} disabled={!past.length} title="Rückgängig (Strg+Z)"><Undo2 size={17}/></button>
-        <button className="icon-button" onClick={redo} disabled={!future.length} title="Wiederholen (Strg+Y)"><Redo2 size={17}/></button>
-        <span className="vertical-rule"/>
-        <button className="button flat" onClick={()=>fileInput.current?.click()}><FolderOpen size={16}/> Import</button>
-        <button className="button primary" onClick={()=>exportProject(doc)}><Download size={16}/> Export</button>
-        <input ref={fileInput} type="file" accept=".json,.ghostframe.json,application/json" hidden onChange={openFile}/>
-      </div>
-    </header>
-    <div className="main-layout">
-      <aside className="sidebar left-sidebar">
-        <div className="sidebar-title">BAUWERKZEUGE <ChevronDown size={13}/></div>
-        <p className="builder-tip">Klicke auf die Kante oder Fläche eines Bauteils: Das passende Bau- und Eigenschaftsmenü öffnet sich direkt.</p>
-        <div className="tool-list">{TOOL_INFO.filter(t=>t.key==='square'||t.key==='triangle').map(t=><ToolButton key={t.key} tool={t} current={tool} onClick={setTool}/>)}</div>
-        <div className="side-divider"/><div className="sidebar-title">RUST-BAUKATALOG <Hammer size={14}/></div>
-        <BuildingCatalog/>
-        <div className="side-divider"/>
-        <div className="sidebar-title">GESCHOSSE <Layers3 size={14}/></div>
-        <div className="floor-control"><button title="Geschoss tiefer" onClick={()=>setFloor(floor-1)} disabled={floor===0}><ArrowDown size={18}/></button><div><strong>Ebene {floor}</strong><small>{floor===0?'Fundament-Ebene':`Geschoss ${floor}`}</small></div><button title="Geschoss höher" onClick={()=>setFloor(floor+1)} disabled={floor>=20}><ArrowUp size={18}/></button></div>
-        <div className="floor-pills">{Array.from({length:Math.min(5,Math.max(3,floor+2))},(_,i)=><button key={i} className={i===floor?'on':''} onClick={()=>setFloor(i)}>L{i}</button>)}</div>
-        <div className="side-divider"/>
-        <div className="sidebar-title">PROJEKT <FilePlus2 size={14}/></div>
-        <button className="side-action" onClick={()=>{if(confirm('Aktuellen Grundriss durch ein leeres Projekt ersetzen?'))startNew();}}><FilePlus2 size={17}/> Neues Projekt</button>
-        <button className="side-action" onClick={()=>{if(confirm('Beispiel laden und aktuelles Projekt ersetzen?'))loadExample();}}><Box size={17}/> Beispiel-Base laden</button>
-        <button className="side-action" onClick={()=>{if(confirm('Bunker-Höhen-Demo laden?'))loadBunkerExample();}}><Warehouse size={17}/> Höhen-Bunker-Demo</button>
-        <div className="sidebar-footer"><LockKeyhole size={14}/> Speicherung im Browser. Kein Server-Upload.</div>
-      </aside>
-      <main className="workspace"><EditorCanvas/></main>
-      <aside className="sidebar right-sidebar">
-        <div className="section-heading"><span>BASE ANALYSE</span><TrendingUp size={15}/></div>
-        <div className="stat-grid"><div><small>Bauteile · Ebene</small><strong>{numbers.tiles}</strong></div><div><small>Bauteile · Gesamt</small><strong>{numbers.totalTiles}</strong></div><div><small>Wände / Rahmen</small><strong>{numbers.edges}</strong></div><div><small>Stabilitätsmessungen</small><strong>{numbers.measured}</strong></div></div>
-        <div className="data-status"><div><span className="pulse"/> GEOMETRIE AKTIV</div><p>Kanten-Snapping und Flächenkollision werden geometrisch geprüft.</p></div>
-        <SelectedProperties/>
-        <section className="info-section"><div className="section-heading"><span>ANALYSE MODULE</span><Eye size={15}/></div>
-          <div className="module-row muted"><Activity size={17}/><div><strong>Stability Engine</strong><small>Folgt nach Rust-Regelvalidierung</small></div><span>GEPLANT</span></div>
-          <div className="module-row muted"><Database size={17}/><div><strong>Blueprint Matching</strong><small>Erst mit geprüfter Datenbasis</small></div><span>GEPLANT</span></div>
-          <div className="module-row muted"><ShieldAlert size={17}/><div><strong>Raid Optimizer</strong><small>Keine erfundenen Raid-Kosten</small></div><span>GEPLANT</span></div>
-        </section>
-        <button className="help-button" onClick={()=>setShowHelp(v=>!v)}><CircleHelp size={16}/> Tasten und Bedienhilfe <ChevronRight size={14}/></button>
-        {showHelp&&<div className="help-text"><p>1 / 2: Quadrat / Dreieck. Direkt auf eine Kante klicken für Wand, Öffnung, Anbau und Höhenversatz. Auf eine Fläche klicken für Material, HP, Stabilität und Soft-Side. Strg+Z/Y: Rückgängig/Wiederholen. Bild↑/↓: Geschoss wechseln.</p></div>}
-      </aside>
+ const doc=useEditor(s=>s.doc),tool=useEditor(s=>s.tool),setTool=useEditor(s=>s.setTool);
+ const floor=useEditor(s=>s.floor),setFloor=useEditor(s=>s.setFloor),undo=useEditor(s=>s.undo),redo=useEditor(s=>s.redo);
+ const past=useEditor(s=>s.past),future=useEditor(s=>s.future),modified=useEditor(s=>s.modifiedAt);
+ const startNew=useEditor(s=>s.startNew),loadExample=useEditor(s=>s.loadExample),loadBunkerExample=useEditor(s=>s.loadBunkerExample),setDocument=useEditor(s=>s.setDocument);
+ const rename=useEditor(s=>s.rename),hydrate=useEditor(s=>s.hydrate),loading=useEditor(s=>s.isLoading);
+ const input=useRef<HTMLInputElement>(null);
+ const [saved,setSaved]=useState('gespeichert'),[notice,setNotice]=useState<string|null>(null);
+ const [activeId,setActiveId]=useState<string|null>(null),[query,setQuery]=useState('');
+ const [openGroups,setOpenGroups]=useState<string[]>([...CATALOG_GROUPS.slice(0,3)]);
+ const [view,setView]=useState<ViewMode>('2d'),[module,setModule]=useState<Module>('studio');
+ const [analysisTab,setAnalysisTab]=useState<AnalysisTab>('raid'),[raidPath,setRaidPath]=useState<string[]>([]);
+ const [minimized,setMinimized]=useState(false);
+ const activePiece=getCatalogPiece(activeId??'');
+ const selected=useEditor(s=>s.selected);
+ const numbers=stats(doc,floor);
+ const [welcome,setWelcome]=useState(true);
+ useEffect(()=>{let cancelled=false;loadProject().then(savedDoc=>{if(!cancelled)hydrate(savedDoc);}).catch(()=>{if(!cancelled)hydrate(null);});return()=>{cancelled=true;};},[hydrate]);
+ useEffect(()=>{if(loading||!modified)return;setSaved('speichert …');const timer=setTimeout(()=>saveProject(doc).then(()=>setSaved('gespeichert')).catch(()=>setSaved('Speicherfehler')),500);return()=>clearTimeout(timer);},[doc,modified,loading]);
+ useEffect(()=>{const listener=(e:KeyboardEvent)=>{const target=e.target as HTMLElement|null;
+  if(target&&['INPUT','TEXTAREA','SELECT'].includes(target.tagName))return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return;}
+  if(e.key==='Escape'){setTool('inspect');setActiveId(null);return;}
+  if(e.key==='1')pick('foundation-square');if(e.key==='2')pick('foundation-triangle');
+  if(e.key==='PageUp')setFloor(floor+1);if(e.key==='PageDown')setFloor(floor-1);
+ };window.addEventListener('keydown',listener);return()=>window.removeEventListener('keydown',listener);},[undo,redo,setTool,setFloor,floor]);
+ const file=async(e:ChangeEvent<HTMLInputElement>)=>{const f=e.currentTarget.files?.[0];e.currentTarget.value='';if(!f)return;
+  try{setDocument(await importProject(f));setRaidPath([]);setModule('studio');setNotice('Blueprint erfolgreich geprüft und importiert.');}
+  catch(err){setNotice(err instanceof Error?err.message:'Import fehlgeschlagen');}
+ };
+ function pick(id:string|null){
+  setActiveId(id);const part=getCatalogPiece(id??'');
+  if(part?.category==='tile'&&part.shape)setTool(part.shape);else setTool('inspect');
+  setModule('studio');setView('2d');
+ }
+ function navigate(next:Module){
+  setModule(next);
+  if(next==='raid')setAnalysisTab('raid');if(next==='stability')setAnalysisTab('stability');
+  if(next==='studio'||next==='raid'||next==='stability')setWelcome(false);
+ }
+ function demo(which:'standard'|'bunker'){
+  if(doc.tiles.length&&!confirm('Aktuelles Projekt durch die Beispiel-Base ersetzen?'))return;
+  if(which==='standard')loadExample();else loadBunkerExample();
+  setActiveId(null);setRaidPath([]);setModule('studio');setView('2d');setWelcome(false);
+  setNotice(which==='standard'?'Demo-Base geladen.':'Versetzte Fundamenthöhen geladen.');
+ }
+ const totalFloors=Math.max(1,Math.max(0,...doc.tiles.map(t=>t.floor))+1);
+ const remaining=CATALOG.filter(p=>p.label.toLowerCase().includes(query.trim().toLowerCase()));
+ return <div className="app-shell">
+  <header className="hero-topbar">
+   <div className="hero-brand"><div className="hero-mark"><Hammer size={32}/></div><div><strong>GHOSTFRAME <span>STUDIO</span></strong><small>RUST BASE PLANNER / STABILITY INTELLIGENCE / RAID ANALYSIS</small></div></div>
+   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.5</span></div>
+   <div className="top-actions"><span className="save-state"><Save size={13}/>{saved}</span>
+    <button className="icon-button" onClick={undo} disabled={!past.length} title="Rückgängig"><Undo2 size={17}/></button>
+    <button className="icon-button" onClick={redo} disabled={!future.length} title="Wiederholen"><Redo2 size={17}/></button>
+    <button className="button" onClick={()=>input.current?.click()}><FolderOpen size={16}/> Import</button>
+    <button className="button primary" onClick={()=>exportProject(doc)}><Download size={16}/> Export</button>
+    <input ref={input} hidden type="file" accept=".json,.ghostframe.json,application/json" onChange={file}/>
+   </div>
+  </header>
+  <nav className="main-nav" aria-label="Module">{NAV_ITEMS.map(item=><button key={item.id} onClick={()=>navigate(item.id)} className={module===item.id?'current':''}><item.icon size={16}/><span>{item.label}</span></button>)}</nav>
+  <div className={`main-layout ${minimized?'right-collapsed':''}`}>
+   <aside className="builder-panel">
+     <div className="panel-head"><span><Hammer size={17}/> BAUWERKZEUGE</span><button className="panel-quiet" onClick={()=>{setActiveId(null);setTool('inspect');}} title="Werkzeug abwählen"><MousePointer2 size={15}/> Neutral</button></div>
+     <div className="builder-top-note">Bauteil wählen und im Grundriss platzieren. Wände und Türen setzt du direkt an einer Kante.</div>
+     <div className="catalog-search"><Search size={15}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Bauteile suchen …" aria-label="Baukatalog durchsuchen"/></div>
+     {CATALOG_GROUPS.map(group=>{
+       const parts=remaining.filter(p=>p.group===group);
+       if(!parts.length)return null;
+       const show=openGroups.includes(group)||!!query.trim();
+       return <section className="catalog-section" key={group}>
+         <button className="catalog-group-title" onClick={()=>setOpenGroups(old=>old.includes(group)?old.filter(g=>g!==group):[...old,group])}><span>{group}</span><ChevronDown size={14} className={show?'up':''}/></button>
+         {show&&<div className="piece-grid">{parts.map(part=><button key={part.id} className={`piece-card ${activeId===part.id?'selected':''}`}
+            onClick={()=>pick(part.id)} aria-pressed={activeId===part.id} title={`${part.label} auswählen`}>
+             <StructureIcon piece={part}/><span>{part.shortLabel}</span>{part.projection==='schematic'&&<small>3D-Schema</small>}</button>)}</div>}
+       </section>;
+     })}
+     {query&&remaining.length===0&&<p className="catalog-no-results">Keine Bauteile gefunden.</p>}
+     <div className="active-tool"><span>AKTIVES BAUTEIL</span><strong>{activePiece?.label??'Klick öffnet Kanten-/Bauteil-Menü'}</strong>
+       {activePiece&&<button onClick={()=>pick(null)}>Auswahl aufheben <X size={13}/></button>}</div>
+     <div className="panel-head compact"><span><Layers3 size={15}/> GESCHOSSE</span><small>{totalFloors} im Plan</small></div>
+     <div className="floor-select"><button onClick={()=>setFloor(floor-1)} disabled={floor===0} aria-label="Etage tiefer"><ArrowDown size={17}/></button>
+        <div><strong>ETAGE {floor}</strong><span>{floor===0?'Fundament-Ebene':`Ebene ${floor}`}</span></div>
+        <button onClick={()=>setFloor(floor+1)} disabled={floor===20} aria-label="Etage höher"><ArrowUp size={17}/></button></div>
+     <div className="floor-buttons">{Array.from({length:Math.min(6,Math.max(3,totalFloors,floor+1))},(_,i)=><button key={i} className={floor===i?'active':''} onClick={()=>setFloor(i)}>F{i}</button>)}</div>
+     <div className="panel-head compact"><span><Database size={15}/> BLUEPRINTS</span></div>
+     <div className="template-list"><button onClick={()=>demo('standard')}><span className="template-symbol">⌂</span><span><strong>Compact Compound</strong><small>Demo · 2 Geschosse</small></span><ChevronRight size={14}/></button>
+       <button onClick={()=>demo('bunker')}><span className="template-symbol">▧</span><span><strong>Foundation Offset</strong><small>Demo · Höhenversatz / Bunker</small></span><ChevronRight size={14}/></button></div>
+   </aside>
+   <main className="studio-column">
+    <div className="studio-toolbar"><div className="studio-title"><span className="studio-title-icon"><Boxes size={20}/></span><div><strong>{module==='dashboard'?'DASHBOARD':module==='library'?'BLUEPRINT LIBRARY':module==='settings'?'SETTINGS':module==='raid'?'RAID CALCULATOR':module==='stability'?'STABILITY ANALYZER':'CANVAS STUDIO'}</strong><small>Planen · Bauen · Visualisieren · Analysieren</small></div></div>
+      <div className="studio-actions"><button className="button" onClick={()=>{if(!doc.tiles.length||confirm('Aktuelle Base ersetzen?')){startNew();setRaidPath([]);setWelcome(true);setModule('studio');}}}><Plus size={14}/> Neue Base</button>
+       <button className="button" onClick={()=>input.current?.click()}><FolderOpen size={14}/> Blueprint laden</button>
+       <button className="icon-button panel-toggle" onClick={()=>setMinimized(v=>!v)} title="Analysebereich ein-/ausklappen"><PanelRightClose size={17}/></button></div>
     </div>
-    <footer className="statusbar"><span><span className="status-light"/> EDITOR ONLINE</span><span>GHOSTFRAME v0.4 · RECHTE & RUST-PATCHDATEN NOCH NICHT VALIDIERTER ANALYSEBESTANDTEIL</span><span>Build Layer {floor} <ChevronRight size={12}/> {doc.tiles.length} Elemente</span></footer>
-    {notice&&<div className="toast"><Check size={17}/><span>{notice}</span><button onClick={()=>setNotice(null)} aria-label="Meldung schließen"><X size={17}/></button></div>}
-  </div>;
+    {(module==='studio'||module==='raid'||module==='stability')&&<>
+      <div className="view-toolbar"><div className="mode-switch"><button className={view==='2d'?'selected':''} onClick={()=>setView('2d')}><Grid3X3 size={15}/> 2D Blueprint</button>
+         <button className={view==='3d'?'selected':''} onClick={()=>setView('3d')}><BoxIcon size={15}/> 3D Modell</button>
+         <button className={view==='split'?'selected':''} onClick={()=>setView('split')}><Layers3 size={15}/> Split</button></div>
+       <div className="view-caption"><Compass size={15}/> F{floor} · {doc.tiles.length} Flächen · {doc.edges.length} Kantenobjekte</div>
+       <div className="level-actions"><button onClick={()=>setFloor(floor-1)} disabled={floor===0}><ArrowDown size={15}/></button><span>Etage {floor}</span><button onClick={()=>setFloor(floor+1)} disabled={floor===20}><ArrowUp size={15}/></button></div>
+      </div>
+      <div className={`editor-zone view-${view}`}>
+       {(view==='2d'||view==='split')&&<div className="two-d-view"><EditorCanvas notify={setNotice} activePiece={activePiece}
+         onSelectPiece={pick} onApplied={()=>setActiveId(null)}/></div>}
+       {(view==='3d'||view==='split')&&<div className="three-d-view"><ThreeBaseView doc={doc} floor={floor}/></div>}
+      </div>
+      <div className="studio-footnote"><span><span className="status-light"/> Live-Blueprint-Synchronisierung</span><span>Wände nur dort, wo erfasst · 3D-Vorschau ist keine Physiksimulation</span></div>
+    </>}
+    {module==='dashboard'&&<div className="full-module"><div className="module-hero"><span>DAS PROJEKT IM BLICK</span><h2>BASE INTELLIGENCE</h2><p>Dein Grundriss und seine Höhenebenen sind die Grundlage für die spätere Stabilitäts- und Raid-Analyse.</p><button className="button primary" onClick={()=>navigate('studio')}>Canvas öffnen <ChevronRight size={16}/></button></div>
+       <div className="overview-grid"><div><Layers3/><strong>{doc.tiles.length}</strong><small>Flächen im Blueprint</small></div><div><Boxes/><strong>{doc.edges.length}</strong><small>Kantenkonstruktionen</small></div><div><Activity/><strong>{doc.tiles.filter(t=>t.stability.percent!==null).length}</strong><small>Gemessene Stabilitäten</small></div></div>
+       <div className="dashboard-shortcuts"><button onClick={()=>demo('standard')}>Standard-Demo laden <ChevronRight size={16}/></button><button onClick={()=>demo('bunker')}>Bunker-Höhen-Demo laden <ChevronRight size={16}/></button></div>
+     </div>}
+    {module==='library'&&<div className="full-module"><div className="module-hero"><span>VERIFIZIERTE UND EIGENE VORLAGEN</span><h2>BLUEPRINT LIBRARY</h2><p>Diese beiden Einträge sind ausdrücklich Illustrationen, keine aus dem Internet fertig analysierten Rust-Blueprints. Eigene Dateien kannst du über Import laden.</p></div>
+       <div className="library-cards"><button onClick={()=>demo('standard')}><span className="library-sketch">▧</span><strong>Compact Compound</strong><small>2D/3D-Demo · Honeycomb-Muster</small><span>Laden <ChevronRight size={15}/></span></button>
+       <button onClick={()=>demo('bunker')}><span className="library-sketch">△</span><strong>Foundation Offset</strong><small>Individuelle Fundamenthöhen · Zustände</small><span>Laden <ChevronRight size={15}/></span></button></div>
+       <button className="button" onClick={()=>input.current?.click()}><FolderOpen size={14}/> JSON-Blueprint importieren</button>
+     </div>}
+    {module==='settings'&&<div className="full-module"><div className="module-hero"><span>BEDIENUNG UND DATEN</span><h2>SETTINGS</h2><p>Autosave speichert deine Base lokal im Browser. Daten werden nicht automatisch zu GitHub übertragen.</p></div>
+       <div className="settings-card"><strong>Ansicht</strong><div className="mode-switch"><button className={view==='2d'?'selected':''} onClick={()=>{setView('2d');navigate('studio');}}>2D</button><button className={view==='3d'?'selected':''} onClick={()=>{setView('3d');navigate('studio');}}>3D</button><button className={view==='split'?'selected':''} onClick={()=>{setView('split');navigate('studio');}}>Split</button></div></div>
+       <div className="settings-card"><strong>Projekt sichern</strong><p>Nutze den JSON-Export für Sicherung und Gerätewechsel.</p><button className="button primary" onClick={()=>exportProject(doc)}><Download size={15}/> JSON exportieren</button></div>
+       <div className="settings-card"><strong>Softwarestand</strong><p>GHOSTFRAME v0.5 · unabhängige Rust-inspirierte Oberfläche, keine Original-Rust-Assets.</p></div>
+     </div>}
+   </main>
+   {!minimized&&<AnalysisPanel doc={doc} selected={selected} path={raidPath} setPath={setRaidPath} tab={analysisTab} setTab={setAnalysisTab} activeRoute={module==='raid'}/>}
+  </div>
+  <div className="bottom-dashboard">
+    <div><span><Layers3 size={15}/> BUILD STATS</span><strong>{doc.tiles.length+doc.edges.length}</strong><small>Erfasste Bauteile</small></div>
+    <div><span><Activity size={15}/> STABILITY</span><strong>{[...doc.tiles,...doc.edges].filter(t=>t.stability.percent!==null).length}</strong><small>Messwerte erfasst</small></div>
+    <div><span><Warehouse size={15}/> FOUNDATION LEVELS</span><strong>{new Set(doc.tiles.filter(t=>t.kind==='foundation').map(t=>t.elevation??t.floor)).size}</strong><small>Höhenlagen</small></div>
+    <div><span><BarChart3 size={15}/> AKTUELLES GESCHOSS</span><strong>{numbers.tiles}</strong><small>Flächen F{floor}</small></div>
+    <div><span><ShieldAlert size={15}/> RAID STATUS</span><strong>{raidPath.length}</strong><small>Manuelle Ziele</small></div>
+  </div>
+  <footer className="statusbar"><span><span className="status-light"/> EDITOR ONLINE</span><span>GHOSTFRAME v0.5 · Originales Wasteland-Design · Nicht von Facepunch</span><span>F{floor} <ChevronRight size={12}/> {doc.tiles.length} TILES</span></footer>
+  {notice&&<div className="toast"><Check size={16}/>{notice}<button onClick={()=>setNotice(null)} aria-label="Meldung schließen"><X size={16}/></button></div>}
+  {welcome&&doc.tiles.length===0&&module==='studio'&&view!=='3d'&&<div className="onboarding-hint" role="status"><span>NEUE BASE</span> Wähle links <strong>Quadrat oder Dreieck</strong> und klicke in den Bauplan. <button onClick={()=>setWelcome(false)}>OK</button></div>}
+ </div>;
 }
 export default App;

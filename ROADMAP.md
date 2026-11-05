@@ -99,3 +99,16 @@ Die Arbeit erfolgt in **größeren integrierten Release-Blöcken**. Pro Block we
 **Block C · Blueprint Library und Matching:** Strukturierte, rechtlich freigegebene Katalogeinträge, Importer, Deduplizierung, Mustererkennung unter Rotation/Spiegelung, Ausschluss inkonsistenter Kandidaten, nachvollziehbare Konfidenz statt frei erfundener Wahrscheinlichkeiten.
 
 **Block D · Raid Intelligence und Veröffentlichung:** Versionierte Schadens-/Kostenwerte, Raid-Graphoptimierung, Routenvergleich pro Kandidat und unter Unsicherheit, Tests und Release.
+
+
+## Großer integrierter Release-Block v0.5 (05.11.2026)
+
+- [x] Vollständiger anklickbarer Baukatalog mit 26 Einträgen, fünf Gruppen und Original-Icons
+- [x] Modernes originales Wasteland-Dashboard mit oberen Modulen, 3 Spalten und thematischen Karten
+- [x] 2D, 3D und Split-Modus; 3D direkt aus versionierten Blueprint-Daten mit individuellen Höhen
+- [x] 3D Kamerasteuerung, explodierte und gefilterte Etagen und optionale spekulative Außenhülle
+- [x] Rechte Analyseleiste: manuell ausgewählte Raid-Ziele, Rockets/C4 Referenzkosten, erfasste Stabilitätswerte
+- [x] Lokale Suite mit 34 Tests bestanden
+- [ ] GitHub Actions Build/Deployment auf Release SHA erfolgreich bestätigen
+
+**Nächster großer Block:** aktuelle Rust-Socket- und Stabilitätsregeln, genaue Höhen- und 3D-Geometrie auch für Spezialkonstruktionen, Bauteil-/Damage-Datensätze pro Spielversion und darauf basierend belastbare Raid-Wege. Keine unvalidierte Optimierung oder fingierte Wahrscheinlichkeit.

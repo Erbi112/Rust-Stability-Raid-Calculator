@@ -7,12 +7,13 @@ export type Slot = Readonly<{ sourceId: string; edgeIndex: number; polygon: Poly
 export type EdgeTarget = Readonly<{ a: Point; b: Point; floor: number; distance: number; tileId: string; edgeIndex: number }>;
 
 export const MATERIAL_COLORS: Record<MaterialGrade,string> = {
-  twig:'#836144',wood:'#99653f',stone:'#888177',metal:'#697779',armored:'#545a62',unknown:'#514b47'
+  twig:'#80654b',wood:'#8c603e',stone:'#8e8172',metal:'#697b7c',armored:'#4c6872',unknown:'#514b47'
 };
 export const MATERIAL_NAMES: Record<MaterialGrade,string> = {
   twig:'Twig', wood:'Holz', stone:'Stein', metal:'Metall', armored:'High Quality', unknown:'Unbekannt'
 };
 export const GRID_UNIT = 100;
+export const FOUNDATION_STEP = 0.5; // half-wall units; calibrated ruleset planned
 export const WALL_KIND_NAMES:Record<EdgeKind,string>={wall:'Wand',doorway:'Türöffnung',window:'Fensteröffnung','wall-frame':'Wandrahmen','half-wall':'Halbwand','low-wall':'Niedrigwand',unknown:'Unbekannt'};
 export const TILE_KIND_NAMES:Record<BuildingKind,string>={foundation:'Fundament',floor:'Boden / Decke','floor-frame':'Bodenrahmen',roof:'Dach','stairs-u':'U-Treppe','stairs-l':'L-Treppe','stairs-spiral':'Wendeltreppe','stairs-spiral-triangle':'Dreieck-Wendeltreppe',ramp:'Rampe','foundation-steps':'Fundamentstufen',unknown:'Unbekannt'};
 export const DOOR_NAMES:Record<DoorInsert,string>={none:'Keine Tür','wood-door':'Holztür','sheet-metal-door':'Metalltür','armored-door':'Gepanzerte Tür','garage-door':'Garagentor','double-sheet-metal-door':'Doppelte Metalltür','double-armored-door':'Doppelte gepanzerte Tür'};
@@ -30,12 +31,12 @@ export function createTile(id:string,shape:TileShape,floor:number,polygon:Polygo
 export function newProject(name='Neue Base'):BlueprintDocument{
   return createEmptyBlueprint(globalThis.crypto?.randomUUID?.() ?? 'local-project',name);
 }
-export function placeRoot(doc:BlueprintDocument,floor:number,shape:TileShape,at:Point,id:string,elevation=floor):BlueprintDocument|null {
+export function placeRoot(doc:BlueprintDocument,floor:number,shape:TileShape,at:Point,id:string,elevation=floor,kind?:BuildingKind):BlueprintDocument|null {
   const polygon=initialPolygon(shape,at,GRID_UNIT);
   if(tilesOnFloor(doc,floor).some(t=>overlapsArea(t.polygon,polygon)))return null;
-  return {...doc,tiles:[...doc.tiles,{...createTile(id,shape,floor,polygon),elevation}]};
+  return {...doc,tiles:[...doc.tiles,{...createTile(id,shape,floor,polygon),elevation,kind:kind??(floor===0?'foundation':'floor')}]};
 }
-export function attachTo(doc:BlueprintDocument,floor:number,sourceId:string,edgeIndex:number,shape:TileShape,id:string,relativeHeight=0):BlueprintDocument|null{
+export function attachTo(doc:BlueprintDocument,floor:number,sourceId:string,edgeIndex:number,shape:TileShape,id:string,relativeHeight=0,kind?:BuildingKind):BlueprintDocument|null{
   const source=doc.tiles.find(t=>t.id===sourceId&&t.floor===floor);
   if(!source||edgeIndex<0||edgeIndex>=source.polygon.length)return null;
   const edge=edgeAt(source.polygon,edgeIndex);
@@ -46,7 +47,7 @@ export function attachTo(doc:BlueprintDocument,floor:number,sourceId:string,edge
   if(occupied)return null;
   const polygon=attachPolygon(source.polygon,edgeIndex,shape);
   if(tilesOnFloor(doc,floor).some(t=>overlapsArea(t.polygon,polygon)))return null;
-  return {...doc,tiles:[...doc.tiles,{...createTile(id,shape,floor,polygon),elevation:(source.elevation??source.floor)+relativeHeight}]};
+  return {...doc,tiles:[...doc.tiles,{...createTile(id,shape,floor,polygon),elevation:(source.elevation??source.floor)+relativeHeight,kind:kind??(floor===0?'foundation':'floor')}]};
 }
 export function slotsFor(doc:BlueprintDocument,floor:number,shape:TileShape):Slot[]{
   const slots=availableSlots(geometryTiles(doc).filter(t=>t.level===floor),shape);
@@ -120,27 +121,27 @@ export function removeEntity(doc:BlueprintDocument,selection:SelectedEntity):Blu
   return {...doc,tiles,edges};
 }
 export type EntityPatch = {grade?:MaterialGrade;stability?:number|null;health?:{current:number|null;max:number|null};softSide?:SoftSide;tileKind?:BuildingKind;edgeKind?:EdgeKind;insert?:DoorInsert;rotation?:number;elevation?:number};
-export function updateSelected(doc:BlueprintDocument,selection:SelectedEntity,patch:EntityPatch):BlueprintDocument{
+export function updateSelected(doc:BlueprintDocument,selection:SelectedEntity,patch:EntityPatch):BlueprintDocument {
   if(!selection)return doc;
-  const applyCommon=<T extends BuildingTile|BuildingEdge>(x:T):T=>({...x,
+  const applyCommon=<T extends BuildingTile|BuildingEdge>(e:T):T=>({ ...e,
     ...(patch.grade?{grade:patch.grade,health:makeHealth(patch.grade)}:{}),
-    ...(patch.stability!==undefined?{stability:{...x.stability,percent:patch.stability,source:patch.stability===null?'unknown':'player'}}:{}),
+    ...(patch.stability!==undefined?{stability:{...e.stability,percent:patch.stability,source:patch.stability===null?'unknown':'player'}}:{}),
     ...(patch.health!==undefined?{health:{...patch.health}}:{}),
-    ...(patch.softSide?{softSide:patch.softSide}:{})
+    ...(patch.softSide?{softSide:patch.softSide}:{}),
   });
-  if(selection.type==='tile')return {...doc,tiles:doc.tiles.map(x=>x.id===selection.id?{
-    ...applyCommon(x),
+  if(selection.type==='tile')return {...doc,tiles:doc.tiles.map(t=>t.id===selection.id?{
+    ...applyCommon(t),
     ...(patch.tileKind?{kind:patch.tileKind}:{}),
     ...(patch.rotation!==undefined?{rotation:patch.rotation}:{}),
-    ...(patch.elevation!==undefined?{elevation:patch.elevation}:{})
-  }:x)};
-  return {...doc,edges:doc.edges.map(x=>x.id===selection.id?{
-    ...applyCommon(x),
+    ...(patch.elevation!==undefined?{elevation:patch.elevation}:{}),
+  }:t)};
+  return {...doc,edges:doc.edges.map(e=>e.id===selection.id?{
+    ...applyCommon(e),
     ...(patch.edgeKind?{kind:patch.edgeKind}:{}),
-    ...(patch.insert?{insert:patch.insert}:{})
-  }:x)};
+    ...(patch.insert?{insert:patch.insert}:{}),
+  }:e)};
 }
-/** Explicitly illustrative bunker variant: no verified in-game bunker mechanic. */
+/** Explicitly illustrative bunker variant — no game-rule validation claimed. */
 export function exampleBunkerProject():BlueprintDocument {
   let doc=createEmptyBlueprint('demo-height-bunker','Demo · Versetzte Foundations');
   doc=placeRoot(doc,0,'square',{x:0,y:0},'core',0)!;
@@ -148,10 +149,10 @@ export function exampleBunkerProject():BlueprintDocument {
   doc=attachTo(doc,0,'core',2,'square','access',0)!;
   doc=attachTo(doc,0,'core',0,'triangle','support',-.5)!;
   doc.bunker={mechanism:'unknown',verifiedInGamePatch:null,evidenceUrl:null,
-    note:'Höhen-/Bunkerzustandsmodell – keine validierte Ingame-Konstruktion.'};
+    note:'Illustratives Höhen- und Bunkerzustandsmodell – keine validierte Ingame-Konstruktion.'};
   doc.states=[
-    {id:'sealed',label:'Geschlossen (Beispiel)',purpose:'sealed',tileIds:doc.tiles.map(t=>t.id),edgeIds:[],notes:'Nur Strukturmodell'},
-    {id:'open',label:'Geöffnet (Beispiel)',purpose:'open',tileIds:doc.tiles.filter(t=>t.id!=='support').map(t=>t.id),edgeIds:[],notes:'Temporärer Block fehlt'}
+    {id:'sealed',label:'Geschlossen (Beispiel)',purpose:'sealed',tileIds:doc.tiles.map(t=>t.id),edgeIds:[],notes:'Nur graphische Konfiguration, keine verifizierte Schließmechanik.'},
+    {id:'open',label:'Offen (Beispiel)',purpose:'open',tileIds:doc.tiles.filter(t=>t.id!=='support').map(t=>t.id),edgeIds:[],notes:'Exemplarisch als Bauzustand modelliert.'}
   ];
   return doc;
 }
