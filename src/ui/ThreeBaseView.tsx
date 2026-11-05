@@ -185,9 +185,9 @@ export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
       bar(side,height,.19,-span/2+side/2,height/2);bar(side,height,.19,span/2-side/2,height/2);
       bar(gap,.4,.19,0,height-.2);
       if(edge.insert==='garage-door'){
-        addBox(item,gap-.035,height-.44,.10,0x626b72,0,(height-.44)/2);
+        addBox(item,gap-.035,height-.44,.10,0x626b72,0,(height-.44)/2,0);
         // Visible horizontal rolled-metal segments, distinct from single and double doors.
-        for(let n=1;n<12;n++)addBox(item,gap-.07,.024,.133,n%2?0x9ca1a0:0x3a454b,0,n*(height-.44)/12);
+        for(let n=1;n<12;n++)addBox(item,gap-.07,.024,.133,n%2?0x9ca1a0:0x3a454b,0,n*(height-.44)/12,0);
       }else if(edge.insert&&edge.insert!=='none'){
         addBox(item,gap-.035,height-.42,.085,COLORS[edge.grade]===COLORS.stone?0x976a43:0xa5744a,0,(height-.42)/2,0,0,.97);
       }
