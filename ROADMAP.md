@@ -85,3 +85,17 @@ Ein browserbasiertes, lokal nutzbares und perspektivisch servergestütztes Tool 
 ### Definition of Done je Meilenstein
 
 Funktion implementiert, Tests grün, wichtige Fälle dokumentiert, keine als real ausgegebenen Demo-Werte, JSON kompatibel/migrierbar, README aktualisiert, keine Regression des etablierten Edge-Snapping-Verhaltens. Keine Phase wird als fertig markiert, solange Kernfunktionen noch Platzhalter sind.
+
+---
+
+### Umsetzung nach Entwicklungspaketen (vereinbart 2026-11-05)
+
+Die Arbeit erfolgt in **größeren integrierten Release-Blöcken**. Pro Block werden zusammengehörige Funktionen fertig implementiert, als Paket durchgetestet und gemeinsam ausgerollt. Zwischenstände dienen nur internen Sicherungen, nicht als separate Kleinst-Releases.
+
+**Block A · Editor v0.3 (gestartet 2026-11-05):** React/Vite-Shell, kantenbasierte Geometrie, Material- und Stabilitätseingabe, Wände/Türrahmen/Fenster, Geschosse, Undo/Redo, IndexedDB-Autosave, validierter JSON-Import und -Export, durchgehende Tests. Teststand: 21/21 Node-Kerntests bestanden. Vollständiger React-Browserbuild auf GitHub CI zu verifizieren (lokales Netzwerk blockiert npm-Installation).
+
+**Block B · Bauregeln und Stability Engine (nächster großer Block):** Rust-Regeltests zu Kollisionen, Höhenversätzen, Wänden, Stützen, tatsächlichem Support-Graph und Stabilitätszerfall, kalibrierte Simulationen gegen kontrollierte Ingame-Testbasen, Einstieg in die 3D-Berechnung.
+
+**Block C · Blueprint Library und Matching:** Strukturierte, rechtlich freigegebene Katalogeinträge, Importer, Deduplizierung, Mustererkennung unter Rotation/Spiegelung, Ausschluss inkonsistenter Kandidaten, nachvollziehbare Konfidenz statt frei erfundener Wahrscheinlichkeiten.
+
+**Block D · Raid Intelligence und Veröffentlichung:** Versionierte Schadens-/Kostenwerte, Raid-Graphoptimierung, Routenvergleich pro Kandidat und unter Unsicherheit, Tests und Release.

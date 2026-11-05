@@ -1,11 +1,32 @@
 {
-  "name": "ghostframe-stability-raid-calculator",
-  "version": "0.3.0-alpha.1",
+  "name": "ghostframe-rust-stability-raid-calculator",
   "private": true,
+  "version": "0.3.0",
   "type": "module",
-  "description": "GHOSTFRAME modular geometry foundation; M1 React UI follows",
-  "scripts": {
-    "test:core": "node --experimental-strip-types --test tests/*.test.ts"
+  "engines": {
+    "node": ">=22.16.0"
   },
-  "engines": { "node": ">=22.16.0" }
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit -p tsconfig.app.json && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:core": "npm run test"
+  },
+  "dependencies": {
+    "immer": "^10.1.3",
+    "konva": "^10.0.8",
+    "lucide-react": "^0.468.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-konva": "~19.2.6",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.0"
+  }
 }

@@ -1,21 +1,56 @@
-# GHOSTFRAME · Rust Stability & Raid Intelligence
+# GHOSTFRAME
 
-Interaktives Rust-Base-Analysewerkzeug: geometrisches Bauen, Stabilitäts-Hypothesen, Blueprint-Matching und Raid-Wege.
+**Rust Stability & Raid Intelligence** · Editor Release `v0.3.0`
 
-**Aktueller Status:** M0 begonnen. Ein eigenständiger v0.2-Demo-Editor mit funktionierendem Edge-Snapping liegt unter `legacy/GHOSTFRAME_Editor_v0.2.html`. Diese Demo enthält noch keine validierten Rust-Stabilitäts-/Raid-Werte. Die neue, modulare Kern-Engine liegt unter `src/core/`.
+GHOSTFRAME is an independent browser-based base blueprint editor for the survival game Rust. It is **not** affiliated with Facepunch Studios.
 
-## Entwicklungsplan
+## Current features
 
-Siehe [ROADMAP.md](ROADMAP.md) und [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md).
+- Rust-style edge snapping: square ↔ equilateral triangle at the correct orientation, including slanted triangle edges.
+- Deterministic geometry core, tile overlap prevention, occupied-edge checks, transparent placement preview.
+- Separate floors (level 0 = foundation), optional underfloor silhouettes.
+- Wall, door frame, and window markers directly on real polygon edges.
+- Material and **manually measured** stability editing (`unknown` is distinct from `0%`).
+- Selection, eraser, keyboard shortcuts, pan/zoom, undo/redo, single-project IndexedDB autosave.
+- Versioned JSON export/import with geometry, schema, stability and collision checks.
+- A preloaded demo base and status/inspector panels.
 
-## Tests – ohne zusätzliche Abhängigkeiten
+**Not yet supported:** genuine Rust stability simulation, automatic candidate matching, raid calculations, 3D support, server database. The UI intentionally does not invent these outputs.
 
-Mit Node.js 22.16+:
+## Run locally
 
-```sh
-npm run test:core
+Prerequisites: Node.js 22.16+ and npm.
+
+```bash
+npm install
+npm run dev
 ```
 
-## Als nächstes
+Then visit the URL shown by Vite (normally `http://localhost:5173/`).
 
-Migration der bestehenden v0.2-Oberfläche zu React/Vite, ohne die erfolgreich bestätigte Snap-Bedienung zu verändern (M1). Erst danach Rust-Socket-, Traglast- und Stabilitätsregeln integrieren.
+### Quality checks
+
+```bash
+npm test
+npm run typecheck
+npm run build
+```
+
+GitHub Actions runs the three checks automatically for pushes and pull requests. If package downloads are blocked in your environment, the dependency-free domain tests (`npm test`) will still work and the [accepted v0.2 legacy editor](legacy/GHOSTFRAME_Editor_v0.2.html) opens directly as a local HTML file.
+
+## Layout
+
+- `src/core/geometry.ts` — rendering-independent geometry kernel
+- `src/core/editor.ts` — pure building operations (tiles, edges, snapshots, metadata)
+- `src/core/blueprint.ts` — versioned structure, stability observations, metadata
+- `src/services/persistence.ts` — IndexedDB and validated JSON import/export
+- `src/store/useEditor.ts` — Zustand editor state with Immer, undo/redo
+- `src/ui/App.tsx` — React Konva editor + modern UI
+- `tests/` — deterministic geometry/blueprint validation checks
+- `legacy/` — unchanged, user-approved v0.2 reference editor
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md), [architecture notes](docs/ARCHITEKTUR.md), and [release notes](docs/RELEASE-v0.3.md).
+
+**Rules of engagement:** ship meaningful integrated blocks (implementation, tests, release), not endless individual micro-commits. No unauthorized scraping or unverified “probability” claims.
