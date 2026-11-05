@@ -4,11 +4,12 @@ import type Konva from 'konva';
 import { Activity, ArrowDown, ArrowUp, Box, Check, ChevronDown, ChevronRight, CircleHelp,
   Database, DoorOpen, Download, Eraser, Eye, FilePlus2, FolderOpen, Grid3X3, Layers3,
   LockKeyhole, MousePointer2, Move, Pentagon, Redo2, RotateCcw, Save, ShieldAlert,
-  Square, TrendingUp, Undo2, X, ZoomIn, ZoomOut } from 'lucide-react';
+  Square, Triangle, TrendingUp, Undo2, X, ZoomIn, ZoomOut, Warehouse } from 'lucide-react';
 import { useEditor } from '../store/useEditor.ts';
+import BlueprintMenu, {BuildingCatalog, type ClickMenu} from './BlueprintMenu.tsx';
 import { type Point, type Polygon, type TileShape } from '../core/geometry.ts';
 import type { BuildingTile, BuildingEdge, EdgeKind, MaterialGrade } from '../core/blueprint.ts';
-import { findEdgeAt, findTileAt, findWallAt,
+import { findEdgeAt, findTileAt,
   GRID_UNIT, MATERIAL_COLORS, MATERIAL_NAMES, nearSlot, slotsFor, stats, tilesOnFloor,
   type EditorTool } from '../core/editor.ts';
 import { exportProject, importProject, loadProject, saveProject } from '../services/persistence.ts';
@@ -17,7 +18,7 @@ const GRADE_KEYS:MaterialGrade[]=['twig','wood','stone','metal','armored','unkno
 const TOOL_INFO:{key:EditorTool;title:string;hint:string;icon:typeof Square;short:string}[]=[
   {key:'inspect',title:'Auswählen',hint:'Bauteile und Eigenschaften',icon:MousePointer2,short:'V'},
   {key:'square',title:'Quadrat',hint:'Bodenplatte / Fundament',icon:Square,short:'1'},
-  {key:'triangle',title:'Dreieck',hint:'Dreieckiges Bauteil',icon:Pentagon,short:'2'},
+  {key:'triangle',title:'Dreieck',hint:'Dreieckiges Bauteil',icon:Triangle,short:'2'},
   {key:'wall',title:'Wand',hint:'An einer Kante bauen',icon:Layers3,short:'3'},
   {key:'doorway',title:'Türrahmen',hint:'An einer Kante bauen',icon:DoorOpen,short:'4'},
   {key:'window',title:'Fenster',hint:'An einer Kante bauen',icon:Grid3X3,short:'5'},
@@ -64,12 +65,14 @@ function SelectedProperties(){
 function EditorCanvas(){
   const doc=useEditor(s=>s.doc),floor=useEditor(s=>s.floor),tool=useEditor(s=>s.tool);
   const selected=useEditor(s=>s.selected),select=useEditor(s=>s.select),attach=useEditor(s=>s.attach);
-  const root=useEditor(s=>s.root),wall=useEditor(s=>s.wall),eraseTarget=useEditor(s=>s.eraseTarget);
+  const root=useEditor(s=>s.root);
   const wrapper=useRef<HTMLDivElement>(null),stage=useRef<Konva.Stage>(null);
   const isPan=useRef(false),panStart=useRef<Point|null>(null),skipClick=useRef(false);
   const [dimensions,setDimensions]=useState({width:900,height:650});
   const [camera,setCamera]=useState({x:450,y:325,scale:1});
   const [pointer,setPointer]=useState<Point|null>(null);
+  const [menu,setMenu]=useState<ClickMenu|null>(null);
+  const [rootHeight,setRootHeight]=useState(0);
   const [showBelow,setShowBelow]=useState(true);
   const [showGrid,setShowGrid]=useState(true);
   useEffect(()=>{
@@ -113,18 +116,22 @@ function EditorCanvas(){
   const handleClick=()=>{
     if(skipClick.current){skipClick.current=false;return;}
     const at=getWorld();if(!at)return;
-    if(isPlacer(tool)){
-      if(tiles.length===0){root(tool,at);return;}
-      const slot=nearSlot(slots,at);if(slot)attach(slot.sourceId,slot.edgeIndex,tool);
+    const screen=stage.current?.getPointerPosition()??{x:150,y:150};
+    // A direct edge click always opens the contextual Rust construction menu.
+    const edge=findEdgeAt(doc,floor,at,Math.min(19/camera.scale,22));
+    if(edge){setMenu({kind:'edge',target:edge,x:screen.x+12,y:screen.y+12});return;}
+    const foundTile=findTileAt(doc,floor,at);
+    if(foundTile){
+      select({type:'tile',id:foundTile.id});
+      setMenu({kind:'tile',id:foundTile.id,x:screen.x+12,y:screen.y+12});
       return;
     }
-    const kind=wallKind(tool);
-    if(kind){const target=findEdgeAt(doc,floor,at,18/camera.scale);if(target)wall(target,kind);return;}
-    const foundEdge=findWallAt(doc,floor,at,9/camera.scale);
-    const foundTile=findTileAt(doc,floor,at);
-    const target=foundEdge?{type:'edge' as const,id:foundEdge.id}:foundTile?{type:'tile' as const,id:foundTile.id}:null;
-    if(tool==='erase'){if(target)eraseTarget(target);return;}
-    select(target);
+    if(isPlacer(tool)){
+      if(tiles.length===0){root(tool,at,rootHeight);useEditor.getState().setTool('inspect');return;}
+      const slot=nearSlot(slots,at);
+      if(slot){attach(slot.sourceId,slot.edgeIndex,tool);useEditor.getState().setTool('inspect');}
+    }
+    setMenu(null);
   };
   const handleWheel=(event:Konva.KonvaEventObject<WheelEvent>)=>{
     event.evt.preventDefault();const p=stage.current?.getPointerPosition();if(!p)return;
@@ -168,7 +175,10 @@ function EditorCanvas(){
             stroke={selected?.type==='tile'&&selected.id===tile.id?'#ffe39b':'#7ccce8'}
             strokeWidth={(selected?.type==='tile'&&selected.id===tile.id?4:1.8)/camera.scale}/>
           <Line points={points(tile.polygon)} closed stroke="#a3dcfa" opacity={.12} strokeWidth={.5/camera.scale}/>
-          <KonvaText x={centroid(tile.polygon).x-22} y={centroid(tile.polygon).y-9} width={44}
+          <KonvaText x={centroid(tile.polygon).x-24} y={centroid(tile.polygon).y-16} width={48}
+            text={tile.elevation===undefined?'H ?':`H ${tile.elevation>=0?'+':''}${tile.elevation}`} align="center"
+            fill="#ffd5ac" fontSize={11} fontStyle="bold"/>
+          <KonvaText x={centroid(tile.polygon).x-22} y={centroid(tile.polygon).y+2} width={44}
             text={tile.stability.percent===null?'—':`${tile.stability.percent}%`} align="center"
             fill={tile.stability.percent===null?'#88a9bd':'#e1fbff'} fontSize={13/camera.scale>18?18:13}
             fontStyle="bold"/>
@@ -197,14 +207,24 @@ function EditorCanvas(){
       <button onClick={()=>zoom(1.2)} title="Vergrößern"><ZoomIn size={16}/></button>
       <button title="Zentrieren" onClick={()=>setCamera({scale:1,x:dimensions.width/2,y:dimensions.height/2})}><RotateCcw size={15}/></button>
     </div>
-    {tiles.length===0&&tool==='inspect'&&<div className="canvas-empty"><Box size={32}/><h3>Neue Base zeichnen</h3><p>Wähle links ein Quadrat oder Dreieck und klicke auf die Arbeitsfläche.</p><button onClick={()=>useEditor.getState().setTool('square')}>Mit Quadrat beginnen <ChevronRight size={16}/></button></div>}
+    {tiles.length===0&&tool==='inspect'&&<div className="canvas-empty"><Box size={32}/><h3>Neue Base konstruieren</h3>
+      <p>Wähle deine Startform. Fundamente und Dreiecke lassen sich anschließend an gemeinsamen Kanten anfügen.</p>
+      <div className="start-shapes">
+        <button onClick={()=>useEditor.getState().setTool('square')}><Square size={18}/> Quadrat</button>
+        <button onClick={()=>useEditor.getState().setTool('triangle')}><Triangle size={18}/> Dreieck</button>
+      </div>
+      <label className="field-label">Start-Fundamenthöhe (volle Wandhöhen)</label>
+      <div className="rust-steps">{[-.5,0,.5,1].map(v=><button key={v} className={rootHeight===v?'chosen':''} onClick={()=>setRootHeight(v)}>{v>0?'+':''}{v}</button>)}</div>
+      <p>Danach auf die freie Baufläche klicken.</p>
+    </div>}
+    {menu&&<BlueprintMenu menu={menu} close={()=>setMenu(null)} notice={msg=>useEditor.getState().setDocument({...useEditor.getState().doc,notes:[...useEditor.getState().doc.notes,msg]})}/>}
   </div>;
 }
 function App(){
   const doc=useEditor(s=>s.doc),tool=useEditor(s=>s.tool),setTool=useEditor(s=>s.setTool);
   const floor=useEditor(s=>s.floor),setFloor=useEditor(s=>s.setFloor),undo=useEditor(s=>s.undo),redo=useEditor(s=>s.redo);
   const past=useEditor(s=>s.past),future=useEditor(s=>s.future),modifiedAt=useEditor(s=>s.modifiedAt);
-  const startNew=useEditor(s=>s.startNew),loadExample=useEditor(s=>s.loadExample),setDocument=useEditor(s=>s.setDocument);
+  const startNew=useEditor(s=>s.startNew),loadExample=useEditor(s=>s.loadExample),loadBunkerExample=useEditor(s=>s.loadBunkerExample),setDocument=useEditor(s=>s.setDocument);
   const rename=useEditor(s=>s.rename),hydrate=useEditor(s=>s.hydrate),isLoading=useEditor(s=>s.isLoading);
   const fileInput=useRef<HTMLInputElement>(null);
   const [saved,setSaved]=useState<'saved'|'saving'|'error'>('saved');
@@ -242,7 +262,7 @@ function App(){
   return <div className="app-shell">
     <header className="topbar">
       <div className="brand"><div className="brand-mark"><Pentagon size={22}/></div><div><strong>GHOSTFRAME</strong><small>RUST · STRUCTURAL INTELLIGENCE</small></div></div>
-      <div className="top-center"><span className="file-dot"/><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.3</span></div>
+      <div className="top-center"><span className="file-dot"/><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.4</span></div>
       <div className="top-actions">
         <span className={'save-state '+saved}><Save size={13}/>{saved==='saved'?'Gespeichert':saved==='saving'?'Speichert …':'Lokales Speichern nicht verfügbar'}</span>
         <button className="icon-button" onClick={undo} disabled={!past.length} title="Rückgängig (Strg+Z)"><Undo2 size={17}/></button>
@@ -256,7 +276,10 @@ function App(){
     <div className="main-layout">
       <aside className="sidebar left-sidebar">
         <div className="sidebar-title">BAUWERKZEUGE <ChevronDown size={13}/></div>
-        <div className="tool-list">{TOOL_INFO.map(t=><ToolButton key={t.key} tool={t} current={tool} onClick={setTool}/>)}</div>
+        <p className="builder-tip">Klicke auf die Kante oder Fläche eines Bauteils: Das passende Bau- und Eigenschaftsmenü öffnet sich direkt.</p>
+        <div className="tool-list">{TOOL_INFO.filter(t=>t.key==='square'||t.key==='triangle').map(t=><ToolButton key={t.key} tool={t} current={tool} onClick={setTool}/>)}</div>
+        <div className="side-divider"/><div className="sidebar-title">RUST-BAUKATALOG <Hammer size={14}/></div>
+        <BuildingCatalog/>
         <div className="side-divider"/>
         <div className="sidebar-title">GESCHOSSE <Layers3 size={14}/></div>
         <div className="floor-control"><button title="Geschoss tiefer" onClick={()=>setFloor(floor-1)} disabled={floor===0}><ArrowDown size={18}/></button><div><strong>Ebene {floor}</strong><small>{floor===0?'Fundament-Ebene':`Geschoss ${floor}`}</small></div><button title="Geschoss höher" onClick={()=>setFloor(floor+1)} disabled={floor>=20}><ArrowUp size={18}/></button></div>
@@ -265,6 +288,7 @@ function App(){
         <div className="sidebar-title">PROJEKT <FilePlus2 size={14}/></div>
         <button className="side-action" onClick={()=>{if(confirm('Aktuellen Grundriss durch ein leeres Projekt ersetzen?'))startNew();}}><FilePlus2 size={17}/> Neues Projekt</button>
         <button className="side-action" onClick={()=>{if(confirm('Beispiel laden und aktuelles Projekt ersetzen?'))loadExample();}}><Box size={17}/> Beispiel-Base laden</button>
+        <button className="side-action" onClick={()=>{if(confirm('Bunker-Höhen-Demo laden?'))loadBunkerExample();}}><Warehouse size={17}/> Höhen-Bunker-Demo</button>
         <div className="sidebar-footer"><LockKeyhole size={14}/> Speicherung im Browser. Kein Server-Upload.</div>
       </aside>
       <main className="workspace"><EditorCanvas/></main>
@@ -279,10 +303,10 @@ function App(){
           <div className="module-row muted"><ShieldAlert size={17}/><div><strong>Raid Optimizer</strong><small>Keine erfundenen Raid-Kosten</small></div><span>GEPLANT</span></div>
         </section>
         <button className="help-button" onClick={()=>setShowHelp(v=>!v)}><CircleHelp size={16}/> Tasten und Bedienhilfe <ChevronRight size={14}/></button>
-        {showHelp&&<div className="help-text"><p>1 / 2: Quadrat / Dreieck. 3 / 4 / 5: Wand / Tür / Fenster. V: Auswählen. X: Entfernen. Strg+Z/Y: Rückgängig/Wiederholen. Bild↑/↓: Geschoss wechseln. Mittlere oder rechte Maustaste: verschieben. Mausrad: Zoom.</p></div>}
+        {showHelp&&<div className="help-text"><p>1 / 2: Quadrat / Dreieck. Direkt auf eine Kante klicken für Wand, Öffnung, Anbau und Höhenversatz. Auf eine Fläche klicken für Material, HP, Stabilität und Soft-Side. Strg+Z/Y: Rückgängig/Wiederholen. Bild↑/↓: Geschoss wechseln.</p></div>}
       </aside>
     </div>
-    <footer className="statusbar"><span><span className="status-light"/> EDITOR ONLINE</span><span>GHOSTFRAME v0.3 · RECHTE & RUST-PATCHDATEN NOCH NICHT VALIDIERTER ANALYSEBESTANDTEIL</span><span>Build Layer {floor} <ChevronRight size={12}/> {doc.tiles.length} Elemente</span></footer>
+    <footer className="statusbar"><span><span className="status-light"/> EDITOR ONLINE</span><span>GHOSTFRAME v0.4 · RECHTE & RUST-PATCHDATEN NOCH NICHT VALIDIERTER ANALYSEBESTANDTEIL</span><span>Build Layer {floor} <ChevronRight size={12}/> {doc.tiles.length} Elemente</span></footer>
     {notice&&<div className="toast"><Check size={17}/><span>{notice}</span><button onClick={()=>setNotice(null)} aria-label="Meldung schließen"><X size={17}/></button></div>}
   </div>;
 }
