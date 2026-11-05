@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import { BookOpen, Database, Download, FilePlus, FolderOpen, RefreshCw, Search, SlidersHorizontal, Trash2, X } from 'lucide-react';
-import type {BlueprintDocument,MaterialGrade} from '../core/blueprint.ts';
+import type {BlueprintDocument} from '../core/blueprint.ts';
 import {BASE_ROLES,BIOMES,BOOLS,BUNKER_TYPES,FEATURE_KEYS,FEATURE_LABELS,GROUPS,
  blueprintsMatchFilter,compareLibraryBase,defaultFilter,defaultMetadata,metadataOf,
  type BlueprintMetadata,type FeatureKey,type LibraryEntry,type LibraryFilter,type KnownBoolean} from '../core/library.ts';
