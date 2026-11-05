@@ -4,7 +4,7 @@ import type Konva from 'konva';
 import { Activity, ArrowDown, ArrowUp, Box, Check, ChevronDown, ChevronRight, CircleHelp,
   Database, DoorOpen, Download, Eraser, Eye, FilePlus2, FolderOpen, Grid3X3, Layers3,
   LockKeyhole, MousePointer2, Move, Pentagon, Redo2, RotateCcw, Save, ShieldAlert,
-  Square, TrendingUp, Undo2, Wall, X, ZoomIn, ZoomOut } from 'lucide-react';
+  Square, TrendingUp, Undo2, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEditor } from '../store/useEditor.ts';
 import { type Point, type Polygon, type TileShape } from '../core/geometry.ts';
 import type { BuildingTile, BuildingEdge, EdgeKind, MaterialGrade } from '../core/blueprint.ts';
@@ -18,7 +18,7 @@ const TOOL_INFO:{key:EditorTool;title:string;hint:string;icon:typeof Square;shor
   {key:'inspect',title:'Auswählen',hint:'Bauteile und Eigenschaften',icon:MousePointer2,short:'V'},
   {key:'square',title:'Quadrat',hint:'Bodenplatte / Fundament',icon:Square,short:'1'},
   {key:'triangle',title:'Dreieck',hint:'Dreieckiges Bauteil',icon:Pentagon,short:'2'},
-  {key:'wall',title:'Wand',hint:'An einer Kante bauen',icon:Wall,short:'3'},
+  {key:'wall',title:'Wand',hint:'An einer Kante bauen',icon:Layers3,short:'3'},
   {key:'doorway',title:'Türrahmen',hint:'An einer Kante bauen',icon:DoorOpen,short:'4'},
   {key:'window',title:'Fenster',hint:'An einer Kante bauen',icon:Grid3X3,short:'5'},
   {key:'erase',title:'Entfernen',hint:'Ein Bauteil löschen',icon:Eraser,short:'X'},
@@ -46,7 +46,7 @@ function SelectedProperties(){
   return <section className="inspector-section">
     <div className="section-heading"><span>INSPEKTOR</span><Activity size={14}/></div>
     {!item?<div className="empty-inspector"><MousePointer2 size={23}/><h3>Bauteil wählen</h3><p>Klicke auf eine Bodenplatte, eine Wand oder einen Türrahmen, um Material und gemessene Stabilität zu erfassen.</p></div>:<>
-      <div className="selected-header"><div className="selected-glyph">{selected?.type==='tile'?<Square size={19}/>:<Wall size={19}/>}</div><div><strong>{selected?.type==='tile'?(item as BuildingTile).shape==='square'?'Quadrat':'Dreieck':(item as BuildingEdge).kind}</strong><small>{item.id} · Ebene {item.floor}</small></div></div>
+      <div className="selected-header"><div className="selected-glyph">{selected?.type==='tile'?<Square size={19}/>:<Layers3 size={19}/>}</div><div><strong>{selected?.type==='tile'?(item as BuildingTile).shape==='square'?'Quadrat':'Dreieck':(item as BuildingEdge).kind}</strong><small>{item.id} · Ebene {item.floor}</small></div></div>
       <label className="field-label" htmlFor="material">Material</label>
       <select id="material" value={item.grade} onChange={e=>updateGrade(e.target.value as MaterialGrade)}>
         {GRADE_KEYS.map(grade=><option value={grade} key={grade}>{MATERIAL_NAMES[grade]}</option>)}
