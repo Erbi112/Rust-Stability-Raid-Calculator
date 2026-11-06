@@ -156,3 +156,8 @@ Die Arbeit erfolgt in **größeren integrierten Release-Blöcken**. Pro Block we
 - [ ] Verify route outcomes and ammo damage values against real Rust patch, including splash/partial HP and stability collapse
 - [ ] Curated and permission-cleared blueprint corpus with verified core/loot markers
 - [ ] UX/E2E verification in the user's interactive browser
+
+
+## v0.11 · Raid Reference & Module Workspaces
+
+Betrieb: Dashboard/Blueprint Library/Stability/Settings in Vollbreite ohne Baukatalog. Der Raid Calculator benutzt eine eigene Baukomponenten-Auswahl und 2D-/3D-Inspektoren ohne Bau-Editierfunktionen. Kontextmenüs bleiben im sichtbaren Browserbereich. Vier quellenbezogene Raid-Methoden; keine Ingame-Physik-Simulation. Details: [Release v0.11](docs/RELEASE-v0.11.md).

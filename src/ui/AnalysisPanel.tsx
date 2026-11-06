@@ -1,23 +1,22 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Activity, ArrowRight, BarChart3, Crosshair, Database, HelpCircle, Layers3, Plus, Rocket, Shield, Trash2 } from 'lucide-react';
 import type { BlueprintDocument } from '../core/blueprint.ts';
 import { MATERIAL_NAMES, WALL_KIND_NAMES } from '../core/editor.ts';
-import { calculateManualRaid } from '../core/raid.ts';
+import { calculateManualRaid, RAID_REFERENCE, RAID_METHODS, RAID_METHOD_LABELS, type RaidMethod } from '../core/raid.ts';
 import { planRaidRoutes, type RaidRoute } from '../core/route-planner.ts';
 import { structuralConnectivity, simulateStructuralRemoval } from '../core/stability.ts';
 import type { SelectedEntity } from '../core/editor.ts';
 export type AnalysisTab='raid'|'stability'|'stats';
-export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute}: {
+export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute,allowedTabs,raidTargetId,setRaidTargetId,method,setMethod}: {
  doc:BlueprintDocument;selected:SelectedEntity;path:string[];setPath:(ids:string[])=>void;
- tab:AnalysisTab;setTab:(t:AnalysisTab)=>void;activeRoute:boolean;
+ tab:AnalysisTab;setTab:(t:AnalysisTab)=>void;activeRoute:boolean;allowedTabs?:AnalysisTab[];
+ raidTargetId:string;setRaidTargetId:(id:string)=>void;method:RaidMethod;setMethod:(m:RaidMethod)=>void;
 }){
  const result=useMemo(()=>calculateManualRaid(doc,path),[doc,path]);
  const topology=useMemo(()=>structuralConnectivity(doc),[doc]);
  const selectedStatus=selected?topology.nodes[selected.id]:undefined;
  const impact=useMemo(()=>selected&&topology.nodes[selected.id]?simulateStructuralRemoval(doc,selected.id):null,[doc,selected,topology]);
- const [method,setMethod]=useState<'rockets'|'c4'>('rockets');
- const [routeTargetId,setRouteTargetId]=useState<string>('');
- const targetId=doc.tiles.some(t=>t.id===routeTargetId)?routeTargetId:'';
+ const targetId=doc.tiles.some(t=>t.id===raidTargetId)?raidTargetId:'';
  const routePlans=useMemo(()=>targetId?planRaidRoutes(doc,targetId,method,4):null,[doc,targetId,method]);
  const preferredRoute=routePlans?.documented[0]??null;
  const conditionalRoute=routePlans?.exploratory[0]??null;
@@ -29,20 +28,20 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute}
  const avg=measured.length?Math.round(measured.reduce((s,v)=>s+v,0)/measured.length):null;
  const lowest=measured.length?Math.min(...measured):null;
  const grades=Object.entries(doc.tiles.reduce<Record<string,number>>((a,t)=>(a[MATERIAL_NAMES[t.grade]]=(a[MATERIAL_NAMES[t.grade]]??0)+1,a),{}));
- const total=method==='rockets'?result.rockets:result.c4;
- const sulfur=method==='rockets'?result.rocketSulfur:result.c4Sulfur;
+ const total=result.totals[method].count;
+ const sulfur=result.totals[method].sulfur;
  return <aside className={`analysis-panel ${activeRoute?'focus-panel':''}`}>
    <div className="panel-head"><span><Crosshair size={17}/> RAID & STRUKTUR-ANALYSE</span></div>
    <div className="panel-tabs">
-     <button className={tab==='raid'?'active':''} onClick={()=>setTab('raid')}><Rocket size={14}/> Raid</button>
-     <button className={tab==='stability'?'active':''} onClick={()=>setTab('stability')}><Activity size={14}/> Stability</button>
-     <button className={tab==='stats'?'active':''} onClick={()=>setTab('stats')}><BarChart3 size={14}/> Basis</button>
+     {(!allowedTabs||allowedTabs.includes('raid'))&&<button className={tab==='raid'?'active':''} onClick={()=>setTab('raid')}><Rocket size={14}/> Raid</button>}
+     {(!allowedTabs||allowedTabs.includes('stability'))&&<button className={tab==='stability'?'active':''} onClick={()=>setTab('stability')}><Activity size={14}/> Stability</button>}
+     {(!allowedTabs||allowedTabs.includes('stats'))&&<button className={tab==='stats'?'active':''} onClick={()=>setTab('stats')}><BarChart3 size={14}/> Basis</button>}
    </div>
    {tab==='raid'&&<>
      <div className="calculator-block hero-cost">
        <div className="block-eyebrow">MANUELL MARKIERTE RAID-ROUTE <span className="small-label">REFERENZWERTE</span></div>
-       <div className="calc-mode"><button className={method==='rockets'?'on':''} onClick={()=>setMethod('rockets')}>Rockets</button><button className={method==='c4'?'on':''} onClick={()=>setMethod('c4')}>C4</button></div>
-       <div className="big-calc"><span>{total===null?'–':total}</span><div><strong>{method==='rockets'?'Rockets':'C4-Ladungen'}</strong><small>{sulfur===null?'Nicht vollständig berechenbar':`≈ ${sulfur.toLocaleString('de-DE')} Schwefel`}</small></div></div>
+       <div className="calc-mode gf-methods">{RAID_METHODS.map(m=><button key={m} className={method===m?'on':''} onClick={()=>setMethod(m)}>{RAID_METHOD_LABELS[m]}</button>)}</div>
+       <div className="big-calc"><span>{total===null?'–':total}</span><div><strong>{RAID_METHOD_LABELS[method]}</strong><small>{sulfur===null?'Nicht vollständig berechenbar':`≈ ${sulfur.toLocaleString('de-DE')} Schwefel`}</small></div></div>
        <p className="subtle-note">Nur von dir markierte Bauteile, als vollständige Ziele gerechnet. Kein automatischer optimaler Raidweg, keine Splash- oder Einsturzoptimierung.</p>
      </div>
      <div className="calculator-block">
@@ -51,7 +50,7 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute}
          {inPath?<Trash2 size={16}/>:<Plus size={16}/>} {inPath?'Aus Route entfernen':'Ausgewähltes Bauteil zur Route'}
        </button>}
        {!currentSelected&&<p className="subtle-note">Klicke im 2D-Plan auf eine Wand, Tür oder Fläche und füge das Element hier zur Raid-Route hinzu.</p>}
-       <div className="route-list">{result.details.map((d,i)=><div key={d.id} className="route-row"><span className="route-step">{i+1}</span><div><strong>{d.label}</strong><small>{d.reason??`${d.rockets} Rockets · ${d.c4} C4`}</small></div><button aria-label={`${d.label} entfernen`} onClick={()=>setPath(path.filter(x=>x!==d.id))}><Trash2 size={14}/></button></div>)}
+       <div className="route-list">{result.details.map((d,i)=><div key={d.id} className="route-row"><span className="route-step">{i+1}</span><div><strong>{d.label}</strong><small>{d.reason??`${d.rockets} Rockets · ${d.c4} C4 · ${d.satchels} Satchels · ${d.exploAmmo} Explo`}</small></div><button aria-label={`${d.label} entfernen`} onClick={()=>setPath(path.filter(x=>x!==d.id))}><Trash2 size={14}/></button></div>)}
          {!result.details.length&&<div className="empty-route"><Crosshair size={24}/><span>Noch keine Raid-Ziele markiert</span></div>}</div>
        {!!path.length&&<button className="muted-wide" onClick={()=>setPath([])}><Trash2 size={13}/> Route leeren</button>}
      </div>
@@ -59,22 +58,22 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute}
        <div className="block-headline"><span>AUTOMATISCHE ROUTENSUCHE</span><span className="small-label">GRAPH · REFERENZ</span></div>
        <p className="subtle-note">Wähle einen Zielraum (Core/Loot) selbst. Der Graph sucht ab der Außenkante über dokumentierte Wände, Türen und übereinanderliegende Bodenflächen. Er erfindet keine Innenwände.</p>
        <label className="gf-route-label" htmlFor="gf-route-goal">Zielraum / Grundfläche</label>
-       <select id="gf-route-goal" className="gf-route-select" value={targetId} onChange={e=>setRouteTargetId(e.target.value)}>
+       <select id="gf-route-goal" className="gf-route-select" value={targetId} onChange={e=>setRaidTargetId(e.target.value)}>
          <option value="">Ziel auswählen …</option>
          {doc.tiles.map(t=><option key={t.id} value={t.id}>F{t.floor} · {t.kind} · {t.id.slice(0,9)}</option>)}
        </select>
-       {selected?.type==='tile'&&doc.tiles.some(t=>t.id===selected.id)&&<button className="muted-wide" onClick={()=>setRouteTargetId(selected.id)}>Markierte Grundfläche als Ziel setzen</button>}
+       {selected?.type==='tile'&&doc.tiles.some(t=>t.id===selected.id)&&<button className="muted-wide" onClick={()=>setRaidTargetId(selected.id)}>Markierte Grundfläche als Ziel setzen</button>}
        {routePlans&&<>
          <div className="gf-route-result">
-          <div className="gf-route-result-head"><strong>Günstigster modellierter Weg</strong><span>{method==='rockets'?'Rockets':'C4'}</span></div>
+          <div className="gf-route-result-head"><strong>Günstigster modellierter Weg</strong><span>{RAID_METHOD_LABELS[method]}</span></div>
           {preferredRoute?<>
-           <div className="gf-route-total"><strong>{preferredRoute.methodTotal} {method==='rockets'?'Rockets':'C4'}</strong><span>{preferredRoute.sulfur?.toLocaleString('de-DE')} Schwefel</span></div>
+           <div className="gf-route-total"><strong>{preferredRoute.methodTotal} {RAID_METHOD_LABELS[method]}</strong><span>{preferredRoute.sulfur?.toLocaleString('de-DE')} Schwefel</span></div>
            <small>{preferredRoute.steps.length} Übergänge · Eintritt über F{preferredRoute.entryFloor} · ohne unbekannte Kanten</small>
            <button className="accent-wide" onClick={()=>adopt(preferredRoute)}>Route in manuellen Plan übernehmen</button>
           </>:<p className="gf-route-unknown">Kein vollständig modellierter Zugang zum Ziel erfasst.</p>}
          </div>
          {routePlans.documented.slice(1,4).map((route,i)=><button className="gf-route-alternative" key={route.entryKey} onClick={()=>adopt(route)}>
-           <span>Alternative {i+2}: {route.methodTotal} {method==='rockets'?'Rockets':'C4'}</span><b>{route.sulfur?.toLocaleString('de-DE')} S</b>
+           <span>Alternative {i+2}: {route.methodTotal} {RAID_METHOD_LABELS[method]}</span><b>{route.sulfur?.toLocaleString('de-DE')} S</b>
          </button>)}
          {!preferredRoute&&conditionalRoute&&<div className="gf-route-conditional">
            <strong>Nur hypothetische Route gefunden</strong>
@@ -83,9 +82,9 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute}
          </div>}
          {routePlans.warnings.slice(0,2).map(w=><p className="gf-route-hint" key={w}>{w}</p>)}
        </>}
-       <p className="gf-route-hint">Keine Splash-Damage-, Soft-Side-, Einsturz- oder Bunker-Mechanik. Richtwerte sind noch nicht für den eingetragenen Rust-Patch validiert.</p>
+       <p className="gf-route-hint">Keine Splash-Damage-, Soft-Side-, Einsturz- oder Bunker-Mechanik. Quellenwerte gelten für intakte Ziele und sind keine eigene Ingame-Messung.</p>
      </div>
-     <div className="reference-note"><HelpCircle size={14}/><span>Richtwerte nach öffentlich dokumentierten Rust-Raid-Tabellen; nicht patch-validiert. <a href="https://wiki.facepunch.com/rust/item/ammo.rocket.basic" target="_blank" rel="noreferrer">Quelle</a> · <a href="https://rust.wiki/calculators/raid" target="_blank" rel="noreferrer">Vergleich</a></span></div>
+     <div className="reference-note"><HelpCircle size={14}/><span><strong>Quellenstand: {RAID_REFERENCE.patch}</strong> · geprüft {RAID_REFERENCE.reviewedAt} · nicht eigenständig im Spiel validiert. {doc.game.patch&&doc.game.patch!==RAID_REFERENCE.patch?<b> Achtung: Blueprint-Patch {doc.game.patch} weicht ab. </b>:null}{RAID_REFERENCE.sources.map((src,i)=><span key={src.url}>{i?' · ':''}<a href={src.url} target="_blank" rel="noreferrer">{src.name}</a></span>)}</span></div>
    </>}
    {tab==='stability'&&<>
      <div className="calculator-block hero-cost"><div className="block-eyebrow">ERFASSTE STABILITÄT</div>

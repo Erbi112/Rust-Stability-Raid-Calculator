@@ -9,6 +9,12 @@ export const FOOTPRINTS=['unknown','1x1','2x1','2x2','3x3','4x4','5x5','hexagona
 export const BUILD_STAGES=['unknown','starter','expandable','finished'] as const;
 export const DEFENSE_MODES=['unknown','offline','online','balanced'] as const;
 export const BOOLS=['unknown','yes','no'] as const;
+export const VERIFICATION_STATUSES=['unverified','source-documented','in-game-tested'] as const;
+export type VerificationStatus=typeof VERIFICATION_STATUSES[number];
+export interface BlueprintVerification {
+ status:VerificationStatus;patch:string|null;evidenceUrl:string|null;checkedAt:string|null;notes:string;
+}
+export const defaultVerification=():BlueprintVerification=>({status:'unverified',patch:null,evidenceUrl:null,checkedAt:null,notes:''});
 export type KnownBoolean=typeof BOOLS[number];
 export type GroupSize=typeof GROUPS[number];
 export type BaseRole=typeof BASE_ROLES[number];
@@ -63,17 +69,25 @@ export interface BlueprintMetadata {
  recommendedPlayers?:number|null;
  externalTCCount?:number|null; bunkerCount?:number|null; wallLayers?:number|null; buildCostStone?:number|null; buildCostMetal?:number|null; buildCostHQM?:number|null;
  creatorNote?:string;
+ /** Self-reported evidence; never silently inferred from L4. */
+ verification?:BlueprintVerification;
  tags:string[];
 }
-export const defaultMetadata=():BlueprintMetadata=>({group:'unknown',role:'unknown',bunker:'unknown',biome:'unknown',footprint:'unknown',stage:'unknown',defense:'unknown',features:{},upkeep24h:null,raidMinimumRockets:null,lootRooms:null,recommendedPlayers:null,externalTCCount:null,bunkerCount:null,wallLayers:null,buildCostStone:null,buildCostMetal:null,buildCostHQM:null,tags:[]});
+export const defaultMetadata=():BlueprintMetadata=>({group:'unknown',role:'unknown',bunker:'unknown',biome:'unknown',footprint:'unknown',stage:'unknown',defense:'unknown',features:{},upkeep24h:null,raidMinimumRockets:null,lootRooms:null,recommendedPlayers:null,externalTCCount:null,bunkerCount:null,wallLayers:null,buildCostStone:null,buildCostMetal:null,buildCostHQM:null,verification:defaultVerification(),tags:[]});
 export interface LibraryEntry {key:string;doc:BlueprintDocument;storedAt:string;origin:'demo'|'local'|'imported';}
+/** Only the existence of a complete user-provided proof record; not independent verification. */
+export function hasInGameEvidence(doc:BlueprintDocument):boolean {
+ const record=doc.library?.verification;
+ return Boolean(record?.status==='in-game-tested'&&record.patch?.trim()&&record.checkedAt&&
+   /^\d{4}-\d{2}-\d{2}$/.test(record.checkedAt)&&record.evidenceUrl&&/^https?:\/\//i.test(record.evidenceUrl));
+}
 export interface LibraryFilter {
  query:string;group:GroupSize|'all';groups:readonly GroupSize[];role:BaseRole|'all';bunker:BunkerType|'all';biome:Biome|'all';footprint:Footprint|'all';stage:BuildStage|'all';defense:DefenseMode|'all';
- feature:FeatureKey|'all';featureValue:KnownBoolean|'all';featureConstraints:Partial<Record<FeatureKey,KnownBoolean>>;quality:string;grade:MaterialGrade|'all';
+ feature:FeatureKey|'all';featureValue:KnownBoolean|'all';featureConstraints:Partial<Record<FeatureKey,KnownBoolean>>;quality:string;verification:VerificationStatus|'all';grade:MaterialGrade|'all';
  floorsMin:number|null;floorsMax:number|null;rocketMax:number|null;upkeepMax:number|null;
  origins: 'all'|'demo'|'local'|'imported';minTiles:number|null;maxTiles:number|null;externalTCMin:number|null;bunkerCountMin:number|null;lootRoomsMin:number|null;buildCostStoneMax:number|null;
 }
-export const defaultFilter=():LibraryFilter=>({query:'',group:'all',groups:[],role:'all',bunker:'all',biome:'all',footprint:'all',stage:'all',defense:'all',feature:'all',featureValue:'all',featureConstraints:{},quality:'all',grade:'all',floorsMin:null,floorsMax:null,rocketMax:null,upkeepMax:null,origins:'all',minTiles:null,maxTiles:null,externalTCMin:null,bunkerCountMin:null,lootRoomsMin:null,buildCostStoneMax:null});
+export const defaultFilter=():LibraryFilter=>({query:'',group:'all',groups:[],role:'all',bunker:'all',biome:'all',footprint:'all',stage:'all',defense:'all',feature:'all',featureValue:'all',featureConstraints:{},quality:'all',verification:'all',grade:'all',floorsMin:null,floorsMax:null,rocketMax:null,upkeepMax:null,origins:'all',minTiles:null,maxTiles:null,externalTCMin:null,bunkerCountMin:null,lootRoomsMin:null,buildCostStoneMax:null});
 export function metadataOf(doc:BlueprintDocument):BlueprintMetadata {return {...defaultMetadata(),...doc.library,features:doc.library?.features??{},tags:doc.library?.tags??[]};}
 export function blueprintsMatchFilter(entry:LibraryEntry,f:LibraryFilter):boolean{
  const d=entry.doc,m=metadataOf(d),floorCount=new Set(d.tiles.map(t=>t.floor)).size;
@@ -91,6 +105,9 @@ export function blueprintsMatchFilter(entry:LibraryEntry,f:LibraryFilter):boolea
  for(const [key,value] of Object.entries(f.featureConstraints) as [FeatureKey,KnownBoolean][])if((m.features[key]??'unknown')!==value)return false;
  if(f.feature!=='all'&&f.featureValue!=='all'&&(m.features[f.feature]??'unknown')!==f.featureValue)return false;
  if(f.quality!=='all'&&d.quality!==f.quality)return false;
+ if(f.verification!=='all') {
+   if(f.verification==='in-game-tested'?!hasInGameEvidence(d):(d.library?.verification?.status??'unverified')!==f.verification)return false;
+ }
  if(f.grade!=='all'&&![...d.tiles,...d.edges].some(x=>x.grade===f.grade))return false;
  if(f.floorsMin!==null&&floorCount<f.floorsMin)return false;
  if(f.floorsMax!==null&&floorCount>f.floorsMax)return false;
@@ -106,13 +123,15 @@ export function blueprintsMatchFilter(entry:LibraryEntry,f:LibraryFilter):boolea
  return true;
 }
 export type SimilarityResult={key:string;score:number;confidence:'coarse-structure-only';reasons:string[]};
-/** Support both historical height-signature field names. */
+/** Accept historical `transitions` and `adjacency` height-pattern field names.
+ * This makes stored blueprints and older released comparison modules compatible. */
 type HeightEdge={pair:string;delta:number};
 function measuredHeightEdges(pattern:unknown):readonly HeightEdge[]{
  if(!pattern||typeof pattern!=='object')return [];
  const p=pattern as {transitions?:readonly HeightEdge[];adjacency?:readonly HeightEdge[]};
  return p.transitions??p.adjacency??[];
 }
+
 /** Deterministic structural similarity score, explicitly NOT the probability of a particular base. */
 export function compareLibraryBase(observed:BlueprintDocument,candidates:readonly LibraryEntry[]):SimilarityResult[]{
  const observedPattern=measuredHeightEdges(heightPattern(observed));

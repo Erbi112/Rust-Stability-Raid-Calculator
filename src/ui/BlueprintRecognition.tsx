@@ -4,7 +4,7 @@ import type { BlueprintDocument, BuildingTile } from '../core/blueprint.ts';
 import type { LibraryEntry } from '../core/library.ts';
 import { recognizeBlueprints, type RecognitionResult } from '../core/recognition.ts';
 import { compareCandidateRaidRoutes } from '../core/route-planner.ts';
-import type { RaidMethod } from '../core/raid.ts';
+import { RAID_METHODS, RAID_METHOD_LABELS, type RaidMethod } from '../core/raid.ts';
 
 type Props={current:BlueprintDocument;entries:readonly LibraryEntry[];onOpen:(doc:BlueprintDocument)=>void};
 const statusLabels:Record<RecognitionResult['status'],string>={
@@ -87,7 +87,7 @@ export function BlueprintRecognition({current,entries,onOpen}:Props){
       <label>Zielraum <select value={validTarget} onChange={e=>setRaidTarget(e.target.value)}><option value="">Ziel ausdrücklich auswählen …</option>
        {current.tiles.map(t=><option value={t.id} key={t.id}>F{t.floor} · {t.kind} · {t.id.slice(0,9)}</option>)}</select></label>
       <label>Kostenmethode <select value={raidMethod} onChange={e=>setRaidMethod(e.target.value as RaidMethod)}>
-       <option value="rockets">Rockets</option><option value="c4">C4</option></select></label>
+       {RAID_METHODS.map(m=><option key={m} value={m}>{RAID_METHOD_LABELS[m]}</option>)}</select></label>
     </div>
     <div className="gf-multi-select"><strong>Vergleichskandidaten (max. 6)</strong>
       {eligible.slice(0,6).map(r=><label key={r.key}><input type="checkbox" checked={chosenKeys.includes(r.key)} onChange={()=>toggleRaid(r.key)}/>{r.name} <small>({r.status==='partial'?'teilweise':'passend'})</small></label>)}
@@ -98,12 +98,12 @@ export function BlueprintRecognition({current,entries,onOpen}:Props){
        {multiRaid.comparisons.map(c=><div className="gf-multi-row" key={c.key}>
         <strong>{c.name}</strong><span className={c.status==='modeled'?'gf-rec-ok':'gf-rec-partial'}>
          {c.status==='unmapped'?'Ziel nicht zugeordnet':c.status==='no-route'?'Kein modellierter Zugang':c.status==='conditional'?'Nur hypothetisch':
-          `${c.best?.methodTotal} ${raidMethod==='rockets'?'Rockets':'C4'} · ${c.best?.sulfur?.toLocaleString('de-DE')} Schwefel`}</span>
+          `${c.best?.methodTotal} ${RAID_METHOD_LABELS[raidMethod]} · ${c.best?.sulfur?.toLocaleString('de-DE')} Schwefel`}</span>
         {c.best&&<small>{c.best.uncertainSteps} ungeklärte Übergänge · Eintritt über F{c.best.entryFloor}</small>}
        </div>)}
       </div>
       {multiRaid.shared?<div className="gf-multi-common"><strong>Gemeinsamer Einstieg nach Minimax-Kriterium</strong>
-        <span>Höchster Kandidatenaufwand: {multiRaid.shared.worstSulfur.toLocaleString('de-DE')} Schwefel ({raidMethod==='rockets'?'Rockets':'C4'})</span>
+        <span>Höchster Kandidatenaufwand: {multiRaid.shared.worstSulfur.toLocaleString('de-DE')} Schwefel ({RAID_METHOD_LABELS[raidMethod]})</span>
         <small>Alle gewählten Kandidaten verfügen an derselben geometrisch zugeordneten Außenkante über eine vollständig modellierte Route zum Ziel. Nicht nach Spiel-Patch verifiziert.</small></div>
        :<p className="gf-route-unknown">Kein gemeinsamer, vollständig modellierter Eintrittspunkt.</p>}
       <p className="gf-route-hint">{multiRaid.warning}</p>

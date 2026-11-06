@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { BlueprintDocument, BuildingEdge, BuildingTile, MaterialGrade } from '../core/blueprint.ts';
+import type { SelectedEntity } from '../core/editor.ts';
 import { edgeAt, sameEdge, type Point } from '../core/geometry.ts';
 import { PLAN_UNIT_METERS, WALL_HEIGHT_METERS, planToWorld } from '../core/projection.ts';
 import { tileHeight, misplacedUpperTiles } from '../core/levels.ts';
@@ -19,7 +20,7 @@ function worldXY(p:Point){const q=planToWorld(p);return {x:q.x,z:q.z};}
 function owningTile(doc:BlueprintDocument,e:BuildingEdge):BuildingTile|undefined {
   return doc.tiles.find(t=>t.floor===e.floor&&t.polygon.some((_,i)=>{const [a,b]=edgeAt(t.polygon,i);return sameEdge(a,b,e.a,e.b);}));
 }
-export function ThreeBaseView({doc,floor,routeIds=[]}:{doc:BlueprintDocument;floor:number;routeIds?:readonly string[]}){
+export function ThreeBaseView({doc,floor,routeIds=[],onSelect}:{doc:BlueprintDocument;floor:number;routeIds?:readonly string[];onSelect?:(selection:NonNullable<SelectedEntity>,clientX:number,clientY:number)=>void}){
  const mount=useRef<HTMLDivElement>(null),[mode,setMode]=useState<ViewFloorMode>('all'),[exploded,setExploded]=useState(false);
  const fixOldHeights=useEditor(s=>s.fixOldFloorHeights);
  const staleTiles=misplacedUpperTiles(doc);
@@ -127,6 +128,7 @@ export function ThreeBaseView({doc,floor,routeIds=[]}:{doc:BlueprintDocument;flo
     mesh.position.set(x,y,z);mesh.rotation.y=rotate;mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;
   };
   for(const tile of doc.tiles.filter(t=>visible(t.floor))){
+    const firstChild=group.children.length;
     const shape=new THREE.Shape();
     tile.polygon.forEach((p,i)=>{const pt=worldXY(p);if(i===0)shape.moveTo(pt.x,pt.z);else shape.lineTo(pt.x,pt.z);});shape.closePath();
     const thickness=tile.kind==='foundation'?.40:.17;
@@ -171,6 +173,8 @@ export function ThreeBaseView({doc,floor,routeIds=[]}:{doc:BlueprintDocument;flo
       for(let n=0;n<5;n++)addBox(group,(maxX-minX)*.72,.13+n*.14,(maxZ-minZ)/5*.95,0xc5ab8b,
         (maxX+minX)/2,tileY(tile)+.08+n*.07,minZ+(n+.5)*(maxZ-minZ)/5);
     }
+    // The floor, its frame beams, hatch and rails all select the same tile.
+    for(const child of group.children.slice(firstChild))child.userData={entityType:'tile',entityId:tile.id};
   }
   const explicit=new Set<string>();
   for(const edge of doc.edges.filter(e=>visible(e.floor))){
@@ -179,7 +183,7 @@ export function ThreeBaseView({doc,floor,routeIds=[]}:{doc:BlueprintDocument;flo
     const a=worldXY(edge.a),b=worldXY(edge.b);
     const dx=b.x-a.x,dz=b.z-a.z,angle=-Math.atan2(dz,dx),span=Math.hypot(dx,dz);
     const centerX=(a.x+b.x)/2,centerZ=(a.z+b.z)/2;
-    const item=new THREE.Group();item.position.set(centerX,base,centerZ);item.rotation.y=angle;group.add(item);
+    const item=new THREE.Group();item.userData={entityType:'edge',entityId:edge.id};item.position.set(centerX,base,centerZ);item.rotation.y=angle;group.add(item);
     const color=routeIds.includes(edge.id)?0xffa34b:structureTint(edge.id)??COLORS[edge.grade];
     const bar=(w:number,h:number,depth:number,x:number,y:number)=>addBox(item,w,h,depth,color,x,y,0,0,1,routeIds.includes(edge.id)?undefined:edge.skinId);
     const height=edge.kind==='half-wall'?1.5:edge.kind==='low-wall'?.72:WALL_HEIGHT;
@@ -217,19 +221,40 @@ export function ThreeBaseView({doc,floor,routeIds=[]}:{doc:BlueprintDocument;flo
       }
     }
   }
+  // Optional selection in the 3D Raid/Stability workspaces. A drag rotates; a click selects.
+  const raycaster=new THREE.Raycaster(),mouse=new THREE.Vector2();
+  let down:{x:number;y:number}|null=null;
+  const onDown=(event:PointerEvent)=>{down={x:event.clientX,y:event.clientY};};
+  const onUp=(event:PointerEvent)=>{
+    const origin=down;down=null;
+    if(!onSelect||!origin||Math.hypot(event.clientX-origin.x,event.clientY-origin.y)>5)return;
+    const rect=renderer.domElement.getBoundingClientRect();
+    mouse.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);
+    raycaster.setFromCamera(mouse,camera);
+    for(const hit of raycaster.intersectObjects(group.children,true)){
+      let obj:THREE.Object3D|null=hit.object;
+      while(obj&&obj!==group){
+        const id=obj.userData.entityId as string|undefined,type=obj.userData.entityType as 'edge'|'tile'|undefined;
+        if(id&&(type==='edge'||type==='tile')){onSelect({type,id},event.clientX,event.clientY);return;}
+        obj=obj.parent;
+      }
+    }
+  };
+  renderer.domElement.addEventListener('pointerdown',onDown);
+  renderer.domElement.addEventListener('pointerup',onUp);
   const resize=new ResizeObserver(()=>{
     const w=Math.max(1,container.clientWidth),h=Math.max(1,container.clientHeight);
     camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);
   });resize.observe(container);
   renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera);});
   return ()=>{
-    resize.disconnect();renderer.setAnimationLoop(null);controls.dispose();
+    resize.disconnect();renderer.domElement.removeEventListener('pointerdown',onDown);renderer.domElement.removeEventListener('pointerup',onUp);renderer.setAnimationLoop(null);controls.dispose();
     scene.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>m.dispose());}
       if(o instanceof THREE.Line){o.geometry.dispose();const mats=Array.isArray(o.material)?o.material:[o.material];mats.forEach(m=>m.dispose());}});
     textures.forEach(texture=>texture.dispose());
     renderer.dispose();renderer.domElement.remove();
   };
- },[doc,floor,mode,exploded,hull,top,showSupport,routeIds]);
+ },[doc,floor,mode,exploded,hull,top,showSupport,routeIds,onSelect]);
  return <div className="three-wrap">
    <div className="three-scene" ref={mount} aria-label="Interaktive räumliche 3D-Projektion des aktuellen Blueprints"/>
    {failure&&<div className="three-failure">{failure}</div>}
@@ -250,6 +275,6 @@ export function ThreeBaseView({doc,floor,routeIds=[]}:{doc:BlueprintDocument;flo
     <button className={showSupport?'active':''} onClick={()=>setShowSupport(x=>!x)}>Strukturpfade</button>
    </div>
    {showSupport&&<div className="three-structural-legend">Gold: Fundament-Anker · Grün: modelliert verbunden · Rot: Verbindung ungeklärt · keine Rust-%-Prognose</div>}
-   <div className="three-foot">Maus ziehen: drehen · Rad: zoomen · *Hülle ist eine unbestätigte Visualisierung · Dächer und Treppen schematisch</div>
+   <div className="three-foot">{onSelect?'Klick: Element auswählen · ':''}Maus ziehen: drehen · Rad: zoomen · *Hülle ist eine unbestätigte Visualisierung · Dächer und Treppen schematisch</div>
   </div>;
 }

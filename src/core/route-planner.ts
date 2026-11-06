@@ -5,7 +5,7 @@
  * in-game socket/stability optimizations. No Bayesian confidence claims.
  */
 import { edgeAt, sameEdge, type Point } from './geometry.ts';
-import { estimateTarget, SULFUR_PER, type RaidMethod } from './raid.ts';
+import { estimateTarget, SULFUR_PER, RAID_REFERENCE, type RaidMethod } from './raid.ts';
 import { tileHeight } from './levels.ts';
 import type { BlueprintDocument, BuildingTile, BuildingEdge } from './blueprint.ts';
 import type { Candidate, RecognitionResult, RecognitionTransform } from './recognition.ts';
@@ -52,12 +52,10 @@ function barrier(from:string,to:string,edge:BuildingEdge|BuildingTile|undefined,
  }
  if('polygon' in edge&&edge.kind==='floor-frame'&&edge.floorInsert){
   // Hatch costs are currently limited to the consistently documented base hatch.
-  const hp=edge.floorInsert==='ladder-hatch'||edge.floorInsert==='triangle-ladder-hatch';
-  if(hp){const count=method==='rockets'?2:1;return {from,to,kind:'hatch',label:edge.floorInsert==='ladder-hatch'?'Leiterklappe':'Dreieck-Leiterklappe',
-   floor,a,b,barrierId:edge.id,methodCount:count,sulfur:count*SULFUR_PER[method],uncertain:false};}
+  // The same sourced full-health profile is used by the manual and graph planners.
  }
  const estimate=estimateTarget(edge);
- const count=method==='rockets'?estimate.rockets:estimate.c4;
+ const count=estimate.counts[method];
  return {from,to,kind,label:estimate.label,floor,a,b,barrierId:edge.id,
   methodCount:count,sulfur:count===null?null:count*SULFUR_PER[method],uncertain:count===null};
 }
@@ -159,7 +157,9 @@ export function planRaidRoutes(doc:BlueprintDocument,targetId:string,method:Raid
  if(!doc.tiles.some(t=>t.id===targetId))warnings.push('Ziel ist keine vorhandene Grundfläche.');
  if(!doc.tiles.length)warnings.push('Keine Grundflächen im Blueprint.');
  if(!doc.edges.length)warnings.push('Keine Kantenobjekte erfasst: keine dokumentierten Durchgänge oder Wände.');
- if(doc.game.patch===null)warnings.push('Spiel-Patch nicht hinterlegt; Richtwerte sind nicht versionsverifiziert.');
+ if(doc.game.patch===null)warnings.push('Spiel-Patch nicht hinterlegt; Raid-Zahlen stammen aus der Community-Referenz '+RAID_REFERENCE.patch+'.');
+ else if(doc.game.patch!==RAID_REFERENCE.patch)warnings.push('Blueprint-Patch '+doc.game.patch+' unterscheidet sich vom Referenzstand '+RAID_REFERENCE.patch+'. Keine garantierte Gültigkeit.');
+ warnings.push('Richtwerte für volle HP; öffentlich dokumentiert, nicht selbst im Spiel geprüft. Keine Misch- oder Splash-Damage-Optimierung.');
  const graph=buildGraph(doc,method);
  const documented=search(graph,targetId,method,'documented',limit);
  const exploratory=search(graph,targetId,method,'exploratory',limit);

@@ -1,6 +1,6 @@
 # GHOSTFRAME · Rust Base Planner, Stability & Raid Intelligence
 
-![Version](https://img.shields.io/badge/version-v0.10.0-cb682f) ![CI](https://img.shields.io/badge/CI-tests%20%2B%20build-394c51)
+![Version](https://img.shields.io/badge/version-v0.11.0-cb682f) ![CI](https://img.shields.io/badge/CI-tests%20%2B%20build-394c51)
 
 [**▶ GHOSTFRAME im Browser öffnen**](https://erbi112.github.io/Rust-Stability-Raid-Calculator/)
 
@@ -136,3 +136,8 @@ The selector lists the eight official building skin families from the [Facepunch
 The left construction sidebar deliberately scrolls **vertically only**.
 
 See [v0.8 release notes](docs/RELEASE-v0.8.md).
+
+
+## v0.11 · Raid Reference & Module Workspaces
+
+Betrieb: Dashboard/Blueprint Library/Stability/Settings in Vollbreite ohne Baukatalog. Der Raid Calculator benutzt eine eigene Baukomponenten-Auswahl und 2D-/3D-Inspektoren ohne Bau-Editierfunktionen. Kontextmenüs bleiben im sichtbaren Browserbereich. Vier quellenbezogene Raid-Methoden; keine Ingame-Physik-Simulation. Details: [Release v0.11](docs/RELEASE-v0.11.md).

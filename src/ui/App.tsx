@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { Group, Layer, Line, Rect, Stage, Text as KonvaText } from 'react-konva';
 import type Konva from 'konva';
 import { Activity, ArrowDown, ArrowUp, Check, ChevronRight, Database, Download,
@@ -12,7 +13,7 @@ import { DOOR_INSERTS, REFERENCE_MAX_HP,
   type BuildingTile, type BuildingEdge, type EdgeKind, type MaterialGrade, type SoftSide, type BuildingKind, type DoorInsert, type FloorInsert } from '../core/blueprint.ts';
 import { findEdgeAt, findEdgeRecord, findTileAt, nearSlot, slotsFor, stats, tilesOnFloor,
   MATERIAL_COLORS, MATERIAL_NAMES, WALL_KIND_NAMES, TILE_KIND_NAMES, DOOR_NAMES,
-  type EdgeTarget } from '../core/editor.ts';
+  type EdgeTarget, type SelectedEntity } from '../core/editor.ts';
 import { exportProject, importProject, loadProject, saveProject } from '../services/persistence.ts';
 import { CATALOG, CATALOG_GROUPS, getCatalogPiece, type CatalogPiece } from '../core/catalog.ts';
 import { StructureIcon } from './StructureIcon.tsx';
@@ -23,6 +24,9 @@ import { ThreeBaseView } from './ThreeBaseView.tsx';
 import { misplacedUpperTiles, proposedElevation } from '../core/levels.ts';
 import { AnalysisPanel, type AnalysisTab } from './AnalysisPanel.tsx';
 import { structuralConnectivity } from '../core/stability.ts';
+import { canvasInteraction, viewportDialogPosition, workspaceLayout, type CanvasInteraction, type WorkspaceModule } from '../core/module-layout.ts';
+import { RaidSelectionMenu } from './RaidSelectionMenu.tsx';
+import type { RaidMethod } from '../core/raid.ts';
 
 const MATERIALS:MaterialGrade[]=['twig','wood','stone','metal','armored','unknown'];
 const EDGES:EdgeKind[]=['wall','doorway','window','wall-frame','half-wall','low-wall'];
@@ -67,7 +71,7 @@ function ContextEditor({menu,onClose,onNotice,activePiece}:{menu:ContextMenu;onC
   } else onNotice('Hier ist kein kollisionsfreier Anbau möglich.');
  };
  const eHeight=menu.kind==='edge'?doc.tiles.find(t=>t.id===menu.target.tileId)?.elevation:undefined;
- return <div className="context-editor" style={{left:Math.max(8,Math.min(menu.px,window.innerWidth-690)),top:Math.max(52,Math.min(menu.py,window.innerHeight-620))}}
+ return createPortal(<div className="context-editor" style={viewportDialogPosition(menu.px,menu.py,window.innerWidth,window.innerHeight,345,670)}
     role="dialog" aria-label="Bauteil-Kontextmenü" onMouseDown={e=>e.stopPropagation()}>
   <div className="context-title"><span><Hammer size={15}/> {isTile?'BAUTEIL BEARBEITEN':'KANTEN-MENÜ'}</span><button onClick={onClose} title="Schließen"><X size={17}/></button></div>
   {!isTile&&<section className="context-section">
@@ -118,16 +122,18 @@ function ContextEditor({menu,onClose,onNotice,activePiece}:{menu:ContextMenu;onC
     <button className="remove-action" onClick={()=>{remove({type:isTile?'tile':'edge',id:record.id});onClose();}}><Trash2 size={15}/> Bauteil entfernen</button>
   </section>}
   {!record&&isTile&&<p>Bauteil nicht vorhanden.</p>}
- </div>;
+ </div>,document.body);
 }
 
-function EditorCanvas({notify,activePiece,onSelectPiece,onApplied,routeIds}:{notify:(s:string)=>void;activePiece:CatalogPiece|null;
- onSelectPiece:(id:string|null)=>void;onApplied:()=>void;routeIds:readonly string[]}){
+function EditorCanvas({notify,activePiece,onSelectPiece,onApplied,routeIds,interaction='build',onPathChange,onRaidGoal,raidMethod,onRaidMethodChange}:{notify:(s:string)=>void;activePiece:CatalogPiece|null;
+ onSelectPiece:(id:string|null)=>void;onApplied:()=>void;routeIds:readonly string[];interaction?:CanvasInteraction;
+ onPathChange?:(ids:string[])=>void;onRaidGoal?:(id:string)=>void;raidMethod?:RaidMethod;onRaidMethodChange?:(m:RaidMethod)=>void;}){
  const doc=useEditor(s=>s.doc),floor=useEditor(s=>s.floor),tool=useEditor(s=>s.tool),setTool=useEditor(s=>s.setTool);
  const selected=useEditor(s=>s.selected),select=useEditor(s=>s.select),attach=useEditor(s=>s.attach),root=useEditor(s=>s.root);
  const wrapper=useRef<HTMLDivElement>(null),stage=useRef<Konva.Stage>(null),pan=useRef(false),start=useRef<Point|null>(null),skip=useRef(false);
  const [size,setSize]=useState({w:950,h:660}),[camera,setCamera]=useState({x:475,y:330,scale:1});
  const [pointer,setPointer]=useState<Point|null>(null),[menu,setMenu]=useState<ContextMenu|null>(null);
+ const [raidPopup,setRaidPopup]=useState<{type:'tile'|'edge';id:string;px:number;py:number}|null>(null);
  const [grid,setGrid]=useState(true),[below,setBelow]=useState(true),[showSupport,setShowSupport]=useState(false),[rootHeight,setRootHeight]=useState(0);
  const topology=useMemo(()=>showSupport?structuralConnectivity(doc):null,[doc,showSupport]);
  useEffect(()=>{setRootHeight(0);},[floor]);
@@ -157,7 +163,7 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied,routeIds}:{not
   }
  },[doc.tiles.length,size.w,size.h,fitView]);
  useEffect(()=>{cameraReady.current=false;fitView();cameraReady.current=true;},[doc.id,floor]);
- const slots=useMemo(()=>tool==='square'||tool==='triangle'?slotsFor(doc,floor,tool):[],[doc,floor,tool]);
+ const slots=useMemo(()=>interaction==='build'&&(tool==='square'||tool==='triangle')?slotsFor(doc,floor,tool):[],[doc,floor,tool,interaction]);
  const slot=useMemo(()=>pointer?nearSlot(slots,pointer):null,[slots,pointer]);
  const world=useCallback(()=>{const q=stage.current?.getPointerPosition();return q?{x:(q.x-camera.x)/camera.scale,y:(q.y-camera.y)/camera.scale}:null;},[camera]);
  const screen=()=>stage.current?.getPointerPosition()??{x:140,y:140};
@@ -167,10 +173,21 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied,routeIds}:{not
    setCamera(c=>({...c,x:c.x+dx,y:c.y+dy}));start.current=p;return;}
   setPointer(world());
  };
+ const toViewport=(q:Point)=>{const rect=wrapper.current?.getBoundingClientRect();return {px:(rect?.left??0)+q.x+12,py:(rect?.top??0)+q.y+10};};
  const click=()=>{
   if(skip.current){skip.current=false;return;}
   const at=world();if(!at)return;
   const q=screen();
+  if(interaction!=='build'){
+   setMenu(null);
+   const nearEdge=findEdgeAt(doc,floor,at,Math.min(17/camera.scale,23));
+   const existing=nearEdge?findEdgeRecord(doc,nearEdge):null;
+   if(existing){select({type:'edge',id:existing.id});setRaidPopup(interaction==='raid'?{type:'edge',id:existing.id,...toViewport(q)}:null);return;}
+   const tile=findTileAt(doc,floor,at);
+   if(tile){select({type:'tile',id:tile.id});setRaidPopup(interaction==='raid'?{type:'tile',id:tile.id,...toViewport(q)}:null);return;}
+   select(null);setRaidPopup(null);return;
+  }
+  setRaidPopup(null);
   if(activePiece?.category==='floor-insert'&&activePiece.floorInsert){
     const target=findTileAt(doc,floor,at);
     if(!target){notify('Bitte zuerst einen Bodenrahmen auswählen.');return;}
@@ -187,9 +204,9 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied,routeIds}:{not
     if(activePiece?.category==='edge'&&activePiece.edgeKind){useEditor.getState().placeCatalogEdge(near,activePiece.edgeKind);onApplied();}
     else if(activePiece?.category==='insert'&&activePiece.insert){useEditor.getState().placeCatalogEdge(near,activePiece.insert==='garage-door'?'wall-frame':'doorway',activePiece.insert);onApplied();}
     else {const existing=findEdgeRecord(doc,near);if(existing)select({type:'edge',id:existing.id});}
-    setMenu({kind:'edge',target:near,px:q.x+12,py:q.y+10});return;}
+    setMenu({kind:'edge',target:near,...toViewport(q)});return;}
   const t=findTileAt(doc,floor,at);
-  if(t){select({type:'tile',id:t.id});setMenu({kind:'tile',tileId:t.id,px:q.x+12,py:q.y+10});return;}
+  if(t){select({type:'tile',id:t.id});setMenu({kind:'tile',tileId:t.id,...toViewport(q)});return;}
   if(tool==='square'||tool==='triangle'){
    if(!tiles.length){root(tool,at,rootHeight,activePiece?.category==='tile'?activePiece.tileKind:undefined);setTool('inspect');onApplied();return;}
    const nearest=nearSlot(slots,at);
@@ -203,12 +220,12 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied,routeIds}:{not
  };
  const zoom=(f:number)=>setCamera(c=>{const z=Math.max(.25,Math.min(4,c.scale*f));return {x:size.w/2-(size.w/2-c.x)*z/c.scale,y:size.h/2-(size.h/2-c.y)*z/c.scale,scale:z};});
  const gr=useMemo(()=>Array.from({length:111},(_,i)=>i-55),[]);
- const rootPreview=pointer&&!tiles.length&&(tool==='square'||tool==='triangle')?{
+ const rootPreview=interaction==='build'&&pointer&&!tiles.length&&(tool==='square'||tool==='triangle')?{
   square:[{x:pointer.x-50,y:pointer.y-50},{x:pointer.x+50,y:pointer.y-50},{x:pointer.x+50,y:pointer.y+50},{x:pointer.x-50,y:pointer.y+50}],
   triangle:[{x:pointer.x,y:pointer.y-100/Math.sqrt(3)},{x:pointer.x+50,y:pointer.y+50/Math.sqrt(3)},{x:pointer.x-50,y:pointer.y+50/Math.sqrt(3)}]
  }[tool]:null;
  return <div className="canvas-wrapper" ref={wrapper}>
-  <div className="canvas-top-left"><span className="live-dot"/><strong>BAUPLAN · DRAUFSICHT</strong><span className="canvas-separator"/> Geschoss {floor}<span className="canvas-separator"/>{tiles.length} Bauteile</div>
+  <div className="canvas-top-left"><span className="live-dot"/><strong>{interaction==='raid'?'RAID · BAUTEILAUSWAHL':interaction==='inspect'?'STABILITY · STRUKTURANSICHT':'BAUPLAN · DRAUFSICHT'}</strong><span className="canvas-separator"/> Geschoss {floor}<span className="canvas-separator"/>{tiles.length} Bauteile</div>
   <div className="canvas-top-right"><button title="Raster" onClick={()=>setGrid(!grid)} className={grid?'active':''}><Grid3X3 size={16}/></button>
    <button title="Unterliegende Ebene" onClick={()=>setBelow(!below)} className={below?'active':''}><Layers3 size={16}/></button>
    <button title="Ankerpfade aus Strukturmodell anzeigen (nicht Rust-Stabilität)" aria-label="Strukturpfade ein-/ausblenden" onClick={()=>setShowSupport(!showSupport)} className={showSupport?'active':''}><Activity size={16}/></button></div>
@@ -242,22 +259,24 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied,routeIds}:{not
        <Line points={[e.a.x,e.a.y,e.b.x,e.b.y]} stroke={routeIds.includes(e.id)?'#ffbb55':e.insert==='garage-door'?'#ec9d46':e.kind==='doorway'?'#e58d58':e.kind==='window'?'#8ea0a3':e.skinId&&e.skinId!=='default'?getSkin(e.skinId).primary:'#d1b793'} strokeWidth={(routeIds.includes(e.id)?11:e.insert==='garage-door'?8:5)/camera.scale} dash={e.insert==='garage-door'?[6,2]:e.kind==='doorway'?[7,5]:e.kind==='window'?[3,4]:undefined}/>
        {e.insert==='garage-door'&&<KonvaText x={(e.a.x+e.b.x)/2-40} y={(e.a.y+e.b.y)/2-16} width={80} align="center" text="GARAGENTOR" fontSize={9} fontStyle="bold" fill="#ffc080"/>}
      </Group>)}
-     {(tool==='square'||tool==='triangle')&&slots.map((s,i)=><Line key={'s'+i} points={points(s.polygon)} closed stroke="#ad946f" opacity={.3} dash={[6,5]} strokeWidth={1/camera.scale}/>)}
+     {interaction==='build'&&(tool==='square'||tool==='triangle')&&slots.map((s,i)=><Line key={'s'+i} points={points(s.polygon)} closed stroke="#ad946f" opacity={.3} dash={[6,5]} strokeWidth={1/camera.scale}/>)}
      {(slot||rootPreview)&&<Line points={points(slot?.polygon??rootPreview!)} closed fill="#dd8a4b" opacity={.23} stroke="#f9a062" dash={[6,3]} strokeWidth={2/camera.scale}/>}
    </Layer>
   </Stage>
-  <div className="canvas-bottom-left"><span className="chip"><Move size={13}/> Rechte/Mittlere Maustaste: verschieben</span><span className="chip">Kante anklicken → Bau-Menü</span>{showSupport&&<span className="chip">Strukturpfade: Grün verbunden · Rot ungeklärt · Gold Fundament (keine Rust-%-Prognose)</span>}<span className="chip">↻ zeigt gesamten Grundriss</span></div>
+  <div className="canvas-bottom-left"><span className="chip"><Move size={13}/> Rechte/Mittlere Maustaste: verschieben</span><span className="chip">{interaction==='raid'?'Bauteil anklicken → Raid-Auswahl':interaction==='inspect'?'Bauteil anklicken → Analyse':'Kante anklicken → Bau-Menü'}</span>{showSupport&&<span className="chip">Strukturpfade: Grün verbunden · Rot ungeklärt · Gold Fundament (keine Rust-%-Prognose)</span>}<span className="chip">↻ zeigt gesamten Grundriss</span></div>
   <div className="canvas-bottom-right"><button onClick={()=>zoom(1/1.2)} title="Verkleinern"><ZoomOut size={16}/></button><span>{Math.round(camera.scale*100)}%</span>
     <button onClick={()=>zoom(1.2)} title="Vergrößern"><ZoomIn size={16}/></button><button title="Gebäude einpassen und zentrieren" onClick={()=>fitView()}><RotateCcw size={15}/></button></div>
-  {tiles.length===0&&tool==='inspect'&&<div className="canvas-empty"><Hammer size={30}/><h3>NEUE BASE KONSTRUIEREN</h3><p>Starte mit einem quadratischen oder dreieckigen Fundament. Alle weiteren Bauteile docken an vorhandene Kanten an.</p>
+  {interaction==='build'&&tiles.length===0&&tool==='inspect'&&<div className="canvas-empty"><Hammer size={30}/><h3>NEUE BASE KONSTRUIEREN</h3><p>Starte mit einem quadratischen oder dreieckigen Fundament. Alle weiteren Bauteile docken an vorhandene Kanten an.</p>
     <div className="empty-options"><button onClick={()=>onSelectPiece('foundation-square')}><Square size={21}/> Quadrat</button><button onClick={()=>onSelectPiece('foundation-triangle')}><Triangle size={22}/> Dreieck</button></div>
     <label className="field-label">Zusätzlicher Höhenversatz gegenüber dieser Etage (H)</label><div className="offset-pills">{[-.5,0,.5,1].map(v=><button className={rootHeight===v?'picked':''} key={v} onClick={()=>setRootHeight(v)}>{v>0?'+':''}{v}</button>)}</div>
     <p className="context-help">Neue Oberkante: {proposedElevation(doc,floor,pointer??{x:0,y:0},rootHeight).toLocaleString("de-DE")} H. F1 beginnt standardmäßig eine volle Wandhöhe über F0. Dann auf die freie Fläche klicken.</p></div>}
-  {menu&&<ContextEditor menu={menu} onClose={()=>closePop(setMenu)} onNotice={notify} activePiece={activePiece}/>}
+  {interaction==='build'&&menu&&<ContextEditor menu={menu} onClose={()=>closePop(setMenu)} onNotice={notify} activePiece={activePiece}/>}
+  {interaction==='raid'&&raidPopup&&onPathChange&&onRaidGoal&&raidMethod&&onRaidMethodChange&&<RaidSelectionMenu key={raidPopup.id} doc={doc} selection={{type:raidPopup.type,id:raidPopup.id}}
+    x={raidPopup.px} y={raidPopup.py} path={routeIds} onPathChange={onPathChange} onGoal={onRaidGoal} method={raidMethod} onMethodChange={onRaidMethodChange} onClose={()=>setRaidPopup(null)}/>}
  </div>;
 }
 type ViewMode='2d'|'3d'|'split';
-type Module='studio'|'dashboard'|'library'|'raid'|'stability'|'settings';
+type Module=WorkspaceModule;
 const NAV_ITEMS:{id:Module;label:string;icon:typeof Home}[]=[
   {id:'dashboard',label:'Dashboard',icon:Home},{id:'studio',label:'Canvas Studio',icon:BoxIcon},
   {id:'library',label:'Blueprint Library',icon:Layers},{id:'raid',label:'Raid Calculator',icon:Rocket},
@@ -275,6 +294,8 @@ function App(){
  const [openGroups,setOpenGroups]=useState<string[]>([...CATALOG_GROUPS.slice(0,3)]);
  const [view,setView]=useState<ViewMode>('2d'),[module,setModule]=useState<Module>('studio');
  const [analysisTab,setAnalysisTab]=useState<AnalysisTab>('raid'),[raidPath,setRaidPath]=useState<string[]>([]);
+ const [raidGoal,setRaidGoal]=useState(''),[raidMethod,setRaidMethod]=useState<RaidMethod>('rockets');
+ const [threeRaidSelect,setThreeRaidSelect]=useState<{type:'tile'|'edge';id:string;x:number;y:number}|null>(null);
  const [minimized,setMinimized]=useState(false);
  const activePiece=getCatalogPiece(activeId??'');
  const selected=useEditor(s=>s.selected);
@@ -289,9 +310,9 @@ function App(){
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return;}
   if(e.key==='Escape'){setTool('inspect');setActiveId(null);return;}
-  if(e.key==='1')pick('foundation-square');if(e.key==='2')pick('foundation-triangle');
+  if(module==='studio'){if(e.key==='1')pick('foundation-square');if(e.key==='2')pick('foundation-triangle');}
   if(e.key==='PageUp')setFloor(floor+1);if(e.key==='PageDown')setFloor(floor-1);
- };window.addEventListener('keydown',listener);return()=>window.removeEventListener('keydown',listener);},[undo,redo,setTool,setFloor,floor]);
+ };window.addEventListener('keydown',listener);return()=>window.removeEventListener('keydown',listener);},[undo,redo,setTool,setFloor,floor,module]);
  const file=async(e:ChangeEvent<HTMLInputElement>)=>{const f=e.currentTarget.files?.[0];e.currentTarget.value='';if(!f)return;
   try{setDocument(await importProject(f));setRaidPath([]);setModule('studio');setNotice('Blueprint erfolgreich geprüft und importiert.');}
   catch(err){setNotice(err instanceof Error?err.message:'Import fehlgeschlagen');}
@@ -302,6 +323,8 @@ function App(){
   setModule('studio');setView('2d');
  }
  function navigate(next:Module){
+  setTool('inspect');setThreeRaidSelect(null);
+  if(next!=='studio')setActiveId(null);
   setModule(next);
   if(next==='raid')setAnalysisTab('raid');if(next==='stability')setAnalysisTab('stability');
   if(next==='studio'||next==='raid'||next==='stability')setWelcome(false);
@@ -312,12 +335,17 @@ function App(){
   setActiveId(null);setRaidPath([]);setModule('studio');setView('2d');setWelcome(false);
   setNotice(which==='standard'?'Demo-Base geladen.':'Versetzte Fundamenthöhen geladen.');
  }
+ const handleThreeRaidSelect=useCallback((selection:NonNullable<SelectedEntity>,x:number,y:number)=>{
+  useEditor.getState().select(selection);setThreeRaidSelect({...selection,x,y});
+ },[]);
+ const handleThreeStabilitySelect=useCallback((selection:NonNullable<SelectedEntity>)=>useEditor.getState().select(selection),[]);
  const totalFloors=Math.max(1,Math.max(0,...doc.tiles.map(t=>t.floor))+1);
+ const layout=workspaceLayout(module);
  const remaining=CATALOG.filter(p=>p.label.toLowerCase().includes(query.trim().toLowerCase()));
  return <div className="app-shell">
   <header className="hero-topbar">
    <div className="hero-brand"><div className="hero-mark"><Hammer size={32}/></div><div><strong>GHOSTFRAME <span>STUDIO</span></strong><small>RUST BASE PLANNER / STABILITY INTELLIGENCE / RAID ANALYSIS</small></div></div>
-   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.10.0</span></div>
+   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.11.0</span></div>
    <div className="top-actions"><span className="save-state"><Save size={13}/>{saved}</span>
     <button className="icon-button" onClick={undo} disabled={!past.length} title="Rückgängig"><Undo2 size={17}/></button>
     <button className="icon-button" onClick={redo} disabled={!future.length} title="Wiederholen"><Redo2 size={17}/></button>
@@ -327,8 +355,8 @@ function App(){
    </div>
   </header>
   <nav className="main-nav" aria-label="Module">{NAV_ITEMS.map(item=><button key={item.id} onClick={()=>navigate(item.id)} className={module===item.id?'current':''}><item.icon size={16}/><span>{item.label}</span></button>)}</nav>
-  <div className={`main-layout ${minimized?'right-collapsed':''}`}>
-   <aside className="builder-panel">
+  <div className={`main-layout module-${layout} ${minimized?'right-collapsed':''}`}>
+   {module==='studio'&&<aside className="builder-panel">
      <div className="panel-head"><span><Hammer size={17}/> BAUWERKZEUGE</span><button className="panel-quiet" onClick={()=>{setActiveId(null);setTool('inspect');}} title="Werkzeug abwählen"><MousePointer2 size={15}/> Neutral</button></div>
      <div className="builder-top-note">Bauteil wählen und im Grundriss platzieren. Wände und Türen setzt du direkt an einer Kante.</div>
      <div className="catalog-search"><Search size={15}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Bauteile suchen …" aria-label="Baukatalog durchsuchen"/></div>
@@ -359,14 +387,14 @@ function App(){
      <div className="panel-head compact"><span><Database size={15}/> BLUEPRINTS</span></div>
      <div className="template-list"><button onClick={()=>demo('standard')}><span className="template-symbol">⌂</span><span><strong>Compact Compound</strong><small>Demo · 2 Geschosse</small></span><ChevronRight size={14}/></button>
        <button onClick={()=>demo('bunker')}><span className="template-symbol">▧</span><span><strong>Foundation Offset</strong><small>Demo · Höhenversatz / Bunker</small></span><ChevronRight size={14}/></button></div>
-   </aside>
+   </aside>}
    <main className="studio-column">
     <div className="studio-toolbar"><div className="studio-title"><span className="studio-title-icon"><Boxes size={20}/></span><div><strong>{module==='dashboard'?'DASHBOARD':module==='library'?'BLUEPRINT LIBRARY':module==='settings'?'SETTINGS':module==='raid'?'RAID CALCULATOR':module==='stability'?'STABILITY ANALYZER':'CANVAS STUDIO'}</strong><small>Planen · Bauen · Visualisieren · Analysieren</small></div></div>
-      <div className="studio-actions"><button className="button" onClick={()=>{if(!doc.tiles.length||confirm('Aktuelle Base ersetzen?')){startNew();setRaidPath([]);setWelcome(true);setModule('studio');}}}><Plus size={14}/> Neue Base</button>
+       {(module==='studio'||module==='raid')&&<div className="studio-actions"><button className="button" onClick={()=>{if(!doc.tiles.length||confirm('Aktuelle Base ersetzen?')){startNew();setRaidPath([]);setWelcome(true);setModule('studio');}}}><Plus size={14}/> Neue Base</button>
        <button className="button" onClick={()=>input.current?.click()}><FolderOpen size={14}/> Blueprint laden</button>
-       <button className="icon-button panel-toggle" onClick={()=>setMinimized(v=>!v)} title="Analysebereich ein-/ausklappen"><PanelRightClose size={17}/></button></div>
+       <button className="icon-button panel-toggle" onClick={()=>setMinimized(v=>!v)} title="Analysebereich ein-/ausklappen"><PanelRightClose size={17}/></button></div>}
     </div>
-    {(module==='studio'||module==='raid'||module==='stability')&&<>
+    {(module==='studio'||module==='raid')&&<>
       <div className="view-toolbar"><div className="mode-switch"><button className={view==='2d'?'selected':''} onClick={()=>setView('2d')}><Grid3X3 size={15}/> 2D Blueprint</button>
          <button className={view==='3d'?'selected':''} onClick={()=>setView('3d')}><BoxIcon size={15}/> 3D Modell</button>
          <button className={view==='split'?'selected':''} onClick={()=>setView('split')}><Layers3 size={15}/> Split</button></div>
@@ -374,12 +402,26 @@ function App(){
        <div className="level-actions"><button onClick={()=>setFloor(floor-1)} disabled={floor===0}><ArrowDown size={15}/></button><span>Etage {floor}</span><button onClick={()=>setFloor(floor+1)} disabled={floor===20}><ArrowUp size={15}/></button></div>
       </div>
       <div className={`editor-zone view-${view}`}>
-       {(view==='2d'||view==='split')&&<div className="two-d-view"><EditorCanvas notify={setNotice} activePiece={activePiece}
-         onSelectPiece={pick} onApplied={()=>setActiveId(null)} routeIds={raidPath}/></div>}
-       {(view==='3d'||view==='split')&&<div className="three-d-view"><ThreeBaseView doc={doc} floor={floor} routeIds={raidPath}/></div>}
+       {(view==='2d'||view==='split')&&<div className="two-d-view"><EditorCanvas key={module} notify={setNotice} activePiece={module==='studio'?activePiece:null}
+         onSelectPiece={pick} onApplied={()=>setActiveId(null)} routeIds={raidPath} interaction={canvasInteraction(module)}
+         onPathChange={setRaidPath} onRaidGoal={setRaidGoal} raidMethod={raidMethod} onRaidMethodChange={setRaidMethod}/></div>}
+       {(view==='3d'||view==='split')&&<div className="three-d-view"><ThreeBaseView doc={doc} floor={floor} routeIds={raidPath} onSelect={module==='raid'?handleThreeRaidSelect:undefined}/></div>}
       </div>
       <div className="studio-footnote"><span><span className="status-light"/> Live-Blueprint-Synchronisierung</span><span>Wände nur dort, wo erfasst · 3D-Vorschau ist keine Physiksimulation</span></div>
     </>}
+    {module==='stability'&&<div className="stability-workspace">
+      <div className="stability-workspace-head"><div><span className="library-kicker"><Activity size={15}/> STRUKTUR-INTELLIGENCE · READ-ONLY</span><h2>STABILITY ANALYZER</h2><p>Fundamentpfade und Messwerte analysieren – keine Bauteile werden hier verändert.</p></div>
+       <div className="mode-switch"><button className={view==='2d'?'selected':''} onClick={()=>setView('2d')}>2D</button><button className={view==='3d'?'selected':''} onClick={()=>setView('3d')}>3D</button><button className={view==='split'?'selected':''} onClick={()=>setView('split')}>Split</button></div></div>
+      <div className="stability-content"><div className="stability-visual">
+        <div className="stability-floorbar"><span>Etage F{floor} · {doc.tiles.length} Grundflächen</span><div><button disabled={floor===0} onClick={()=>setFloor(floor-1)}>− Etage</button><button disabled={floor===20} onClick={()=>setFloor(floor+1)}>+ Etage</button></div></div>
+        <div className={`editor-zone view-${view}`}>
+          {(view==='2d'||view==='split')&&<div className="two-d-view"><EditorCanvas key="stability" interaction="inspect" notify={setNotice} activePiece={null} onSelectPiece={pick} onApplied={()=>{}} routeIds={[]}/></div>}
+          {(view==='3d'||view==='split')&&<div className="three-d-view"><ThreeBaseView doc={doc} floor={floor} onSelect={handleThreeStabilitySelect}/></div>}
+        </div></div>
+        <AnalysisPanel doc={doc} selected={selected} path={raidPath} setPath={setRaidPath} tab={analysisTab==='raid'?'stability':analysisTab} setTab={setAnalysisTab}
+          allowedTabs={['stability','stats']} activeRoute={false} raidTargetId={raidGoal} setRaidTargetId={setRaidGoal} method={raidMethod} setMethod={setRaidMethod}/>
+      </div>
+    </div>}
     {module==='dashboard'&&<div className="full-module"><div className="module-hero"><span>DAS PROJEKT IM BLICK</span><h2>BASE INTELLIGENCE</h2><p>Dein Grundriss und seine Höhenebenen sind die Grundlage für die spätere Stabilitäts- und Raid-Analyse.</p><button className="button primary" onClick={()=>navigate('studio')}>Canvas öffnen <ChevronRight size={16}/></button></div>
        <div className="overview-grid"><div><Layers3/><strong>{doc.tiles.length}</strong><small>Flächen im Blueprint</small></div><div><Boxes/><strong>{doc.edges.length}</strong><small>Kantenkonstruktionen</small></div><div><Activity/><strong>{doc.tiles.filter(t=>t.stability.percent!==null).length}</strong><small>Gemessene Stabilitäten</small></div></div>
        <div className="dashboard-shortcuts"><button onClick={()=>demo('standard')}>Standard-Demo laden <ChevronRight size={16}/></button><button onClick={()=>demo('bunker')}>Bunker-Höhen-Demo laden <ChevronRight size={16}/></button></div>
@@ -388,10 +430,11 @@ function App(){
     {module==='settings'&&<div className="full-module"><div className="module-hero"><span>BEDIENUNG UND DATEN</span><h2>SETTINGS</h2><p>Autosave speichert deine Base lokal im Browser. Daten werden nicht automatisch zu GitHub übertragen.</p></div>
        <div className="settings-card"><strong>Ansicht</strong><div className="mode-switch"><button className={view==='2d'?'selected':''} onClick={()=>{setView('2d');navigate('studio');}}>2D</button><button className={view==='3d'?'selected':''} onClick={()=>{setView('3d');navigate('studio');}}>3D</button><button className={view==='split'?'selected':''} onClick={()=>{setView('split');navigate('studio');}}>Split</button></div></div>
        <div className="settings-card"><strong>Projekt sichern</strong><p>Nutze den JSON-Export für Sicherung und Gerätewechsel.</p><button className="button primary" onClick={()=>exportProject(doc)}><Download size={15}/> JSON exportieren</button></div>
-       <div className="settings-card"><strong>Softwarestand</strong><p>GHOSTFRAME v0.8.0 · unabhängige Rust-inspirierte Oberfläche, keine Original-Rust-Assets.</p></div>
+       <div className="settings-card"><strong>Softwarestand</strong><p>GHOSTFRAME v0.11.0 · unabhängige Rust-inspirierte Oberfläche, keine Original-Rust-Assets.</p></div>
      </div>}
    </main>
-   {!minimized&&<AnalysisPanel doc={doc} selected={selected} path={raidPath} setPath={setRaidPath} tab={analysisTab} setTab={setAnalysisTab} activeRoute={module==='raid'}/>}
+   {(module==='studio'||module==='raid')&&!minimized&&<AnalysisPanel doc={doc} selected={selected} path={raidPath} setPath={setRaidPath} tab={analysisTab} setTab={setAnalysisTab} activeRoute={module==='raid'}
+     allowedTabs={module==='raid'?['raid','stats']:undefined} raidTargetId={raidGoal} setRaidTargetId={setRaidGoal} method={raidMethod} setMethod={setRaidMethod}/>}
   </div>
   <div className="bottom-dashboard">
     <div><span><Layers3 size={15}/> BUILD STATS</span><strong>{doc.tiles.length+doc.edges.length}</strong><small>Erfasste Bauteile</small></div>
@@ -400,7 +443,10 @@ function App(){
     <div><span><BarChart3 size={15}/> AKTUELLES GESCHOSS</span><strong>{numbers.tiles}</strong><small>Flächen F{floor}</small></div>
     <div><span><ShieldAlert size={15}/> RAID STATUS</span><strong>{raidPath.length}</strong><small>Manuelle Ziele</small></div>
   </div>
-  <footer className="statusbar"><span><span className="status-light"/> EDITOR ONLINE</span><span>GHOSTFRAME v0.8.0 · Originales Wasteland-Design · Nicht von Facepunch</span><span>F{floor} <ChevronRight size={12}/> {doc.tiles.length} TILES</span></footer>
+  <footer className="statusbar"><span><span className="status-light"/> EDITOR ONLINE</span><span>GHOSTFRAME v0.11.0 · Originales Wasteland-Design · Nicht von Facepunch</span><span>F{floor} <ChevronRight size={12}/> {doc.tiles.length} TILES</span></footer>
+  {module==='raid'&&view!=='2d'&&threeRaidSelect&&<RaidSelectionMenu key={threeRaidSelect.id} doc={doc} selection={{type:threeRaidSelect.type,id:threeRaidSelect.id}}
+    x={threeRaidSelect.x} y={threeRaidSelect.y} path={raidPath} onPathChange={setRaidPath} onGoal={setRaidGoal} method={raidMethod} onMethodChange={setRaidMethod}
+    onClose={()=>setThreeRaidSelect(null)}/>}
   {notice&&<div className="toast"><Check size={16}/>{notice}<button onClick={()=>setNotice(null)} aria-label="Meldung schließen"><X size={16}/></button></div>}
   {welcome&&doc.tiles.length===0&&module==='studio'&&view!=='3d'&&<div className="onboarding-hint" role="status"><span>NEUE BASE</span> Wähle links <strong>Quadrat oder Dreieck</strong> und klicke in den Bauplan. <button onClick={()=>setWelcome(false)}>OK</button></div>}
  </div>;
