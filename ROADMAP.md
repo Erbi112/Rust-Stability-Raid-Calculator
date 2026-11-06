@@ -132,3 +132,14 @@ Die Arbeit erfolgt in **größeren integrierten Release-Blöcken**. Pro Block we
 - [ ] Licensed game-identical textures (requires suitable usage rights; NOT implied by procedure preview)
 - [ ] Mass acquisition of external base blueprints with creator permissions (not scraped without rights)
 - [ ] Rust-calibrated automatic hidden-layout probability estimates
+
+### v0.9 · Geometric Blueprint Recognition (large integrated block)
+- [x] Polygon-level matching allowing rotation, reflection, translation, relative floor offsets and partial observed outlines
+- [x] Known relative foundation elevation, material, wall and door observations compared without treating unknowns as false
+- [x] Bunker open/sealed blueprint states compared as separate hypotheses
+- [x] Ranked candidate view with matched/untested diagnostics and side-by-side floor previews
+- [x] Combined filters from v0.8 restrict candidate set; support multi-file JSON import with duplicate protection
+- [x] Deterministic recognition regression suite (rotation, mirror, height conflict, door conflict, incomplete observations)
+- [ ] License-cleared, quality-assured real-world base catalog at scale; currently only two original demos
+- [ ] Calibrated model probabilities based on observed frequencies and in-game reference sets
+- [ ] Multi-candidate route optimization, genuine Rust damage/collapse physics (next major block)

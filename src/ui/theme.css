@@ -115,3 +115,34 @@ button{transition:border-color .15s,background .15s,box-shadow .15s}button:hover
 .library-active-filter-row button:hover{background:#845032}
 @media(max-width:1250px){.library-feature-group .library-features{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:980px){.library-feature-group .library-features{grid-template-columns:minmax(0,1fr)}}
+
+/* GHOSTFRAME v0.9 · Blueprint Intelligence – geometric hypothesis comparison */
+.gf-rec-panel{margin:13px 0 18px;border:1px solid #9e6942;background:linear-gradient(140deg,#293033,#101d23 75%);box-shadow:0 8px 25px #0005;border-top:3px solid #dd8442;min-width:0}
+.gf-rec-title{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 17px;border-bottom:1px solid #48565d}
+.gf-rec-title h3{font:normal 23px Impact,'Arial Narrow',sans-serif;letter-spacing:.8px;margin:6px 0 0;color:#f5e0c6}
+.gf-rec-eyebrow{display:flex;align-items:center;gap:7px;color:#efa86c;font-size:10px;font-weight:900;letter-spacing:1.2px}
+.gf-rec-intro{margin:10px 16px;line-height:1.65;color:#bdc9c6;font-size:11px;max-width:1200px}
+.gf-rec-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 16px}
+.gf-rec-stats span{border:1px solid #465c61;background:#1b292d;padding:11px;color:#b9c7c6;font-size:11px;display:flex;align-items:center;gap:8px}
+.gf-rec-stats b{font:normal 25px Impact,sans-serif;color:#eda568}
+.gf-rec-grid{display:grid;grid-template-columns:minmax(250px,.9fr) minmax(330px,1.5fr);gap:10px;margin:10px 16px 16px;align-items:start}
+.gf-rec-list,.gf-rec-detail{min-width:0;border:1px solid #455b64;background:#152027;min-height:280px}
+.gf-rec-list-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;background:#28353c;font-size:10px;color:#dbe1d8}
+.gf-rec-list-head label{display:flex;align-items:center;gap:5px;white-space:nowrap;color:#c6d0ce}
+.gf-rec-choice{width:100%;display:block;background:#1a282f;border:0;border-top:1px solid #415057;text-align:left;padding:11px 12px;color:#e5e1d5}
+.gf-rec-choice:hover{background:#2e383b}.gf-rec-choice.chosen{background:#3b342d;box-shadow:inset 4px 0 #f0a052}
+.gf-rec-choice>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.gf-rec-choice strong{flex:1;font-size:12px;min-width:100px}.gf-rec-choice small{display:block;margin:6px 0 0 26px;color:#b0c2be;line-height:1.45;font-size:10px}
+.gf-rec-index{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#9c592d;color:#fff;font-size:10px;font-weight:900}
+.gf-rec-status{padding:3px 6px;font-size:9px;font-weight:900;border:1px solid #697478;color:#aabcbf}
+.gf-rec-status.gf-rec-ok{border-color:#648e78;color:#b6f0c8}.gf-rec-status.gf-rec-partial{border-color:#c59b59;color:#f3cd92}.gf-rec-status.gf-rec-conflict{border-color:#ae675e;color:#f3a6a0}
+.gf-rec-detail{padding:12px}.gf-rec-detail-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.gf-rec-detail-top strong{font-size:13px;color:#f5d5ad}.gf-rec-detail-top span{font-size:10px;color:#a4b9b8}
+.gf-rec-previews{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.gf-rec-preview{border:1px solid #53636a;background:#1b2b30;min-width:0;overflow:hidden}
+.gf-rec-preview-head{display:flex;justify-content:space-between;align-items:center;padding:7px;background:#26363d;gap:6px}.gf-rec-preview-head strong{font-size:10px}.gf-rec-preview-head select{background:#152329;border:1px solid #607278;color:#e9dfcc;font-size:10px;padding:4px}
+.gf-rec-blueprint{display:block;width:100%;height:195px;background:#172328}.gf-rec-preview small{display:block;padding:8px;font-size:10px;color:#b2c3c3}
+.gf-rec-findings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin:10px 0}.gf-rec-findings p{background:#233139;border:1px solid #465962;padding:8px;margin:0;font-size:10px;line-height:1.4;color:#d4dbd2}
+.gf-rec-caution{display:flex;align-items:flex-start;gap:7px;padding:10px;color:#f3d8b3;border:1px solid #856044;background:#382e26;font-size:10px;line-height:1.5}
+.gf-rec-empty{display:grid;place-items:center;min-height:110px;padding:20px;color:#b9c5c1;font-size:11px;line-height:1.5}
+@media(max-width:1250px){.gf-rec-grid{grid-template-columns:1fr}.gf-rec-previews{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:850px){.gf-rec-stats{grid-template-columns:1fr}.gf-rec-previews{grid-template-columns:1fr}.gf-rec-title{flex-wrap:wrap}}

@@ -1,10 +1,22 @@
 # GHOSTFRAME · Rust Base Planner, Stability & Raid Intelligence
 
-![Version](https://img.shields.io/badge/version-v0.8.0-cb682f) ![CI](https://img.shields.io/badge/CI-tests%20%2B%20build-394c51)
+![Version](https://img.shields.io/badge/version-v0.9.0-cb682f) ![CI](https://img.shields.io/badge/CI-tests%20%2B%20build-394c51)
 
 [**▶ GHOSTFRAME im Browser öffnen**](https://erbi112.github.io/Rust-Stability-Raid-Calculator/)
 
 Browser-based blueprint editor for the game **Rust**, independently designed and not affiliated with Facepunch Studios. Original vector illustrations and original interface assets; no copied game graphics.
+
+## Release v0.9 · Blueprint Recognition & Comparative Analysis
+
+- Geometric **partial blueprint matching** against locally saved, permissioned templates; no file names or invented base classifications needed for core geometry checks.
+- Recognizes rigid translation, rotation, mirroring and relative floor alignment. Tests square/triangle floor outlines, explicit height transitions, observed materials, wall openings and door types.
+- Compares known open/sealed/construction variants individually; unobserved room layouts and unmeasured stability remain unknown.
+- Integrated comparison panel in **Blueprint Library** with ranked candidate list, side-by-side 2D previews, matched-vs-unknown tiles, checked heights/edges and explicit contradictions.
+- Multi-select JSON import (up to 100 documents per batch) with input validation and duplicate-ID protection; no outside catalog scraping.
+- Existing 67 multi-filter categories continue to restrict the comparison candidates. Prior blueprints and IndexedDB data remain compatible.
+- **Matched tile counts are NOT calibrated probabilities.** One matching foundation is weak evidence; a plausible template is not proof of interior layout. Quality levels L0–L4 remain explicit and are not inferred.
+
+This version ships with the existing two original demonstration designs and imported/local designs. Thousands of legitimate verified third-party blueprints are a separate acquisition effort.
 
 ## Release v0.8 · Blueprint Intelligence & Multi-Filter Library
 

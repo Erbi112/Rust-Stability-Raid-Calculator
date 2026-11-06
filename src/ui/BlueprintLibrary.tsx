@@ -2,12 +2,14 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import { BookOpen, Database, Download, FilePlus, FolderOpen, RefreshCw, Search, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import type {BlueprintDocument} from '../core/blueprint.ts';
 import {BASE_ROLES,BIOMES,BOOLS,BUNKER_TYPES,FEATURE_GROUPS,FEATURE_KEYS,FEATURE_LABELS,GROUPS,FOOTPRINTS,BUILD_STAGES,DEFENSE_MODES,
- blueprintsMatchFilter,compareLibraryBase,defaultFilter,defaultMetadata,metadataOf,
+ blueprintsMatchFilter,defaultFilter,defaultMetadata,metadataOf,
  type BlueprintMetadata,type FeatureKey,type GroupSize,type LibraryEntry,type LibraryFilter,type KnownBoolean} from '../core/library.ts';
 import {exampleBunkerProject,exampleProject} from '../core/editor.ts';
-import {importToLibrary,listLibraryDocuments,removeLibraryDocument,saveLibraryDocument} from '../services/library-storage.ts';
-import {exportProject} from '../services/persistence.ts';
+import {listLibraryDocuments,removeLibraryDocument,saveLibraryDocument} from '../services/library-storage.ts';
+import {exportProject,importProject} from '../services/persistence.ts';
 import {useEditor} from '../store/useEditor.ts';
+import {BlueprintRecognition} from './BlueprintRecognition.tsx';
+import {recognizeBlueprints} from '../core/recognition.ts';
 
 const labels:Record<string,string>={
   unknown:'Unbekannt',all:'Alle',solo:'Solo',duo:'Duo',trio:'Trio',squad:'Squad (4–6)',clan:'Clan (7+)',
@@ -39,10 +41,10 @@ export function BlueprintLibrary({current,onOpen,notify}:Props){
  useEffect(()=>{let alive=true;listLibraryDocuments().then(result=>{if(alive)setItems(result)}).catch(e=>notify(e instanceof Error?e.message:'Bibliothek nicht verfügbar')).finally(()=>{if(alive)setLoading(false)});return()=>{alive=false}},[]);
  useEffect(()=>{setMetadata(metadataOf(current))},[current.id]);
  const all=useMemo(()=>[...demoEntries(),...items],[items]);
- const scores=useMemo(()=>compareLibraryBase(current,all),[current,all]);
- const scoresById=useMemo(()=>new Map(scores.map(s=>[s.key,s.score])),[scores]);
+ const geometricMatches=useMemo(()=>recognizeBlueprints(current,all),[current,all]);
+ const geometricByKey=useMemo(()=>new Map(geometricMatches.map(x=>[x.key,x])),[geometricMatches]);
  const filtered=useMemo(()=>all.filter(x=>blueprintsMatchFilter(x,filters)).sort((a,b)=>{
-  if(sort==='similarity')return (scoresById.get(b.key)??0)-(scoresById.get(a.key)??0);
+  if(sort==='similarity')return (geometricByKey.get(b.key)?.rank??-Infinity)-(geometricByKey.get(a.key)?.rank??-Infinity);
   if(sort==='name')return a.doc.name.localeCompare(b.doc.name);
   if(sort==='size')return b.doc.tiles.length-a.doc.tiles.length;
   if(sort==='floors')return new Set(b.doc.tiles.map(x=>x.floor)).size-new Set(a.doc.tiles.map(x=>x.floor)).size;
@@ -51,7 +53,7 @@ export function BlueprintLibrary({current,onOpen,notify}:Props){
     return (metric(a)??Number.POSITIVE_INFINITY)-(metric(b)??Number.POSITIVE_INFINITY);
   }
   return b.storedAt.localeCompare(a.storedAt);
- }),[all,filters,sort,scoresById]);
+ }),[all,filters,sort,geometricByKey]);
  const featureRequirements=Object.entries(filters.featureConstraints).length;
  const activeCount=featureRequirements+filters.groups.length+[filters.role,filters.bunker,filters.biome,filters.footprint,filters.stage,filters.defense,filters.quality,filters.grade,filters.origins].filter(x=>x!=='all').length+
  [filters.query.trim(),filters.floorsMin,filters.floorsMax,filters.minTiles,filters.maxTiles,filters.rocketMax,filters.upkeepMax,filters.externalTCMin,filters.bunkerCountMin,filters.lootRoomsMin,filters.buildCostStoneMax].filter(x=>x!==''&&x!==null).length;
@@ -71,13 +73,26 @@ export function BlueprintLibrary({current,onOpen,notify}:Props){
   if(!current.tiles.length){notify('Bitte zuerst einen Blueprint zeichnen.');return;}
   setBusy(true);try{useEditor.getState().updateLibraryMetadata(metadata);await saveLibraryDocument({...current,library:metadata},'local');await sync();notify('Blueprint mit seinen Filtermerkmalen lokal gespeichert.');setEditMeta(false);}catch(e){notify(String(e));}finally{setBusy(false)}
  };
- const importFile=async(file:File)=>{setBusy(true);try{const item=await importToLibrary(file);await sync();notify(`Blueprint „${item.doc.name}“ in die lokale Bibliothek importiert.`);}catch(e){notify(e instanceof Error?e.message:'Blueprint-Import fehlgeschlagen.');}finally{setBusy(false)}};
+ const importFiles=async(files:File[])=>{
+  if(files.length>100){notify('Maximal 100 Blueprint-Dateien pro Importvorgang.');return;}
+  setBusy(true);let added=0;const errors:string[]=[];
+  const existing=new Set(all.map(e=>e.doc.id));
+  for(const file of files){try{
+   const doc=await importProject(file);
+   if(existing.has(doc.id)){errors.push(`${file.name}: ID bereits vorhanden`);continue;}
+   await saveLibraryDocument(doc,'imported');existing.add(doc.id);added++;
+  }catch(e){errors.push(`${file.name}: ${e instanceof Error?e.message:'ungültig'}`);}}
+  try{await sync()}catch(e){errors.push(String(e))}
+  setBusy(false);
+  notify(`${added} Blueprint(s) importiert${errors.length?` · ${errors.length} übersprungen (erste: ${errors.slice(0,2).join('; ')})`:''}.`);
+ };
  const remove=async(e:LibraryEntry)=>{if(!confirm(`„${e.doc.name}“ aus der lokalen Bibliothek löschen?`))return;setBusy(true);try{await removeLibraryDocument(e.key);await sync();notify('Bibliothekseintrag gelöscht.')}catch(err){notify(String(err))}finally{setBusy(false)}};
  return <div className="full-module blueprint-library-v8">
   <div className="library-intro"><div><span className="library-kicker"><BookOpen size={15}/> BLUEPRINT INTELLIGENCE · DATENBANK</span><h2>BLUEPRINT-BIBLIOTHEK</h2><p>Eigene oder erlaubte Baupläne sammeln, klassifizieren, nach Höhen, Bunkern und Features suchen und strukturell mit der aktuellen Base vergleichen.</p></div>
-   <div className="library-actions"><button className="button primary" disabled={busy} onClick={()=>setEditMeta(v=>!v)}><FilePlus size={15}/> Aktuelle Base katalogisieren</button><button className="button" onClick={()=>importInput.current?.click()}><FolderOpen size={15}/> JSON importieren</button>
-    <input type="file" hidden ref={importInput} accept=".json,.ghostframe.json,application/json" onChange={e=>{const f=e.target.files?.[0];e.target.value='';if(f)void importFile(f);}}/></div></div>
+   <div className="library-actions"><button className="button primary" disabled={busy} onClick={()=>setEditMeta(v=>!v)}><FilePlus size={15}/> Aktuelle Base katalogisieren</button><button className="button" onClick={()=>importInput.current?.click()}><FolderOpen size={15}/> Mehrere JSON importieren</button>
+    <input type="file" hidden ref={importInput} multiple accept=".json,.ghostframe.json,application/json" onChange={e=>{const files=Array.from(e.target.files??[]);e.target.value='';if(files.length)void importFiles(files);}}/></div></div>
   <div className="library-summary"><div><strong>{all.length}</strong><span>Blueprints gesamt</span></div><div><strong>{items.length}</strong><span>Eigene und importierte</span></div><div><strong>{filtered.length}</strong><span>Aktuelle Treffer</span></div><div><strong>{all.filter(e=>e.doc.quality==='L4').length}</strong><span>Ingame validiert</span></div></div>
+  <BlueprintRecognition current={current} entries={filtered} onOpen={onOpen}/>
   {editMeta&&<section className="library-edit"><div className="library-heading"><strong>AKTUELLE BASE · KATALOGMERKMALE</strong><button onClick={()=>setEditMeta(false)} title="Schließen"><X size={16}/></button></div>
     <div className="library-fields">
      <FilterSelect label="Primäre Gruppengröße" value={metadata.group} values={GROUPS} change={x=>changeMeta('group',x as BlueprintMetadata['group'])}/>
@@ -149,8 +164,8 @@ export function BlueprintLibrary({current,onOpen,notify}:Props){
   </section>
   <div className="library-results-head"><strong>{filtered.length} TREFFER</strong><label>Sortieren <select value={sort} onChange={e=>setSort(e.target.value as typeof sort)}><option value="new">Zuletzt gespeichert</option><option value="name">Name A–Z</option><option value="similarity">Strukturähnlichkeit</option><option value="upkeep">Geringster Upkeep</option><option value="rockets">Wenigste Rockets</option><option value="size">Meiste Grundflächen</option><option value="floors">Meiste Etagen</option></select></label></div>
   <div className="library-result-grid">
-   {filtered.map(e=>{const m=metadataOf(e.doc),score=scoresById.get(e.key)??0;return <article className="library-result" key={e.key}>
-    <div className="library-result-top"><span className="library-result-icon">{e.doc.tiles.some(t=>t.shape==='triangle')?'△':'▣'}</span><div><strong>{e.doc.name}</strong><small>{text(e.origin)} · {text(e.doc.quality)} · {e.doc.tiles.length} Flächen · {new Set(e.doc.tiles.map(t=>t.floor)).size} Etagen</small></div><span className="library-match-score" title="Grobe Ähnlichkeit der erfassten Struktur, keine Wahrscheinlichkeit">{score}%</span></div>
+   {filtered.map(e=>{const m=metadataOf(e.doc),geom=geometricByKey.get(e.key);return <article className="library-result" key={e.key}>
+    <div className="library-result-top"><span className="library-result-icon">{e.doc.tiles.some(t=>t.shape==='triangle')?'△':'▣'}</span><div><strong>{e.doc.name}</strong><small>{text(e.origin)} · {text(e.doc.quality)} · {e.doc.tiles.length} Flächen · {new Set(e.doc.tiles.map(t=>t.floor)).size} Etagen</small></div><span className="library-match-score" title="Übereinstimmende beobachtete Grundflächen, keine Wahrscheinlichkeit">{geom&&geom.matchedTiles>0?`${geom.matchedTiles}/${geom.observedTiles}`:"—"}</span></div>
     <div className="library-tags"><span>{text(m.group)}</span><span>{text(m.role)}</span><span>{text(m.bunker)}</span>{m.footprint&&m.footprint!=='unknown'&&<span>{text(m.footprint)}</span>}{m.externalTCCount!==null&&m.externalTCCount!==undefined&&<span>{m.externalTCCount} External TC</span>}{Object.entries(m.features).filter(([,v])=>v==='yes').slice(0,4).map(([k])=><span key={k}>{FEATURE_LABELS[k as FeatureKey]}</span>)}</div>
     <div className="library-result-actions"><button className="button primary" onClick={()=>{if(current.tiles.length&&!confirm(`Aktuellen Entwurf durch „${e.doc.name}“ ersetzen?`))return;onOpen(structuredClone(e.doc));notify(`„${e.doc.name}“ im Editor geöffnet.`)}}><FolderOpen size={14}/> Im Editor öffnen</button>
      <button className="button" onClick={()=>exportProject(e.doc)} title="JSON exportieren"><Download size={14}/></button>
@@ -158,6 +173,6 @@ export function BlueprintLibrary({current,onOpen,notify}:Props){
    </article>})}
    {!loading&&!filtered.length&&<div className="library-empty"><Search size={25}/><strong>Keine passenden Blueprints</strong><p>Filter zurücksetzen oder eigene Blueprint-Dateien importieren.</p></div>}
   </div>
-  <p className="library-disclaimer">Die Bibliothek startet mit zwei eigenen Demo-Blueprints und speichert weitere lokal im Browser; es werden keine fremden Kataloge automatisch importiert. Ähnlichkeitswerte vergleichen aktuell nur grobe Form-, Material-, Geschoss- und Höhensignaturen. Das sind <strong>keine Wahrscheinlichkeiten</strong> für einen tatsächlichen Innenaufbau. Die zwei mitgelieferten Designs sind Demonstrationen; keine kopierten Drittanbieter-Blueprints.</p>
+  <p className="library-disclaimer">Die Bibliothek startet mit zwei eigenen Demo-Blueprints und speichert weitere lokal im Browser; es werden keine fremden Kataloge automatisch importiert. Die Erkennung verwendet jetzt einen drehungs- und spiegelungsinvarianten Abgleich der beobachteten Polygone sowie bekannte Höhen und Kantenobjekte. Das sind <strong>keine Wahrscheinlichkeiten</strong> für einen tatsächlichen Innenaufbau. Die zwei mitgelieferten Designs sind Demonstrationen; keine kopierten Drittanbieter-Blueprints.</p>
  </div>
 }
