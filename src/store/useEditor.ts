@@ -4,6 +4,8 @@ import { createFloorFromBelow, proposedElevation, repairMisplacedUpperTiles } fr
 import type { BlueprintDocument, BaseRecordSource } from '../core/blueprint.ts';
 import type { BuildingSkinId } from '../core/skins.ts';
 import type { BlueprintMetadata } from '../core/library.ts';
+import { addRaidScenario, removeRaidScenario } from '../core/scenarios.ts';
+import type { MixedRaidEntry } from '../core/raid.ts';
 import type { Point, TileShape } from '../core/geometry.ts';
 import { attachTo, exampleProject, exampleBunkerProject, newProject, placeRoot, removeEntity, updateSelected, upsertWall,
   findEdgeRecord, installFloorInsert, type EdgeTarget, type EditorTool, type SelectedEntity } from '../core/editor.ts';
@@ -47,6 +49,8 @@ interface EditorStore {
   updateInsert:(insert:DoorInsert)=>void;
   updateRotation:(rotation:number)=>void;
   updateElevation:(elevation:number)=>void;
+  saveRaidScenario:(name:string,entries:readonly MixedRaidEntry[],targetRoomId:string|null)=>void;
+  deleteRaidScenario:(id:string)=>void;
   copyFloorFromBelow:()=>number;
   fixOldFloorHeights:()=>number;
   undo:()=>void;
@@ -106,6 +110,8 @@ export const useEditor=create<EditorStore>((set,get)=>({
   updateInsert:(insert)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{insert}))),
   updateRotation:(rotation)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{rotation}))),
   updateElevation:(elevation)=>set(s=>commit(s,updateSelected(s.doc,s.selected,{elevation}))),
+  saveRaidScenario:(name,entries,targetRoomId)=>set(s=>commit(s,addRaidScenario(s.doc,name,entries,targetRoomId,uid(),new Date().toISOString()))),
+  deleteRaidScenario:(id)=>set(s=>commit(s,removeRaidScenario(s.doc,id))),
   copyFloorFromBelow:()=>{
     const s=get(),result=createFloorFromBelow(s.doc,s.floor,uid);
     if(result.added)set(commit(s,result.document));

@@ -1,6 +1,7 @@
 import type { BlueprintDocument } from '../core/blueprint.ts';
 import { isBuildingSkinId, skinCompatible } from '../core/skins.ts';
 import { isBlueprintMetadata } from '../core/library-validation.ts';
+import { isRaidScenarioList } from '../core/scenarios.ts';
 import { edgeAt, overlapsArea, polygonArea, polygonSignedArea, sameEdge } from '../core/geometry.ts';
 
 const DATABASE='ghostframe-projects';
@@ -94,6 +95,7 @@ export function parseBlueprint(data:unknown):BlueprintDocument {
      !isObj(data.source)||!Array.isArray(data.notes)||!['L0','L1','L2','L3','L4'].includes(String(data.quality)))
     throw new Error('Ungültige Metadaten im Blueprint.');
   if(data.library!==undefined&&!isBlueprintMetadata(data.library))throw new Error('Ungültige Blueprint-Kataloginformationen.');
+  if(data.raidScenarios!==undefined&&!isRaidScenarioList(data.raidScenarios))throw new Error('Ungültige gespeicherte Raid-Varianten.');
   const ids=new Set<string>();
   for(const t of data.tiles){
     if(!isObj(t)||typeof t.id!=='string'||!t.id||ids.has(t.id)||!['square','triangle'].includes(String(t.shape))||

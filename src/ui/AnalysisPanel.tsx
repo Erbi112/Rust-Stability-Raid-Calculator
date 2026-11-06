@@ -5,6 +5,8 @@ import { MATERIAL_NAMES, WALL_KIND_NAMES } from '../core/editor.ts';
 import { calculateManualRaid, calculateMixedRaid, RAID_REFERENCE, RAID_METHODS, RAID_METHOD_LABELS, type RaidMethod } from '../core/raid.ts';
 import { planRaidRoutes, type RaidRoute } from '../core/route-planner.ts';
 import { structuralConnectivity, simulateStructuralRemoval } from '../core/stability.ts';
+import { compareRaidScenarios, MAX_RAID_SCENARIOS } from '../core/scenarios.ts';
+import { useEditor } from '../store/useEditor.ts';
 import type { SelectedEntity } from '../core/editor.ts';
 export type AnalysisTab='raid'|'stability'|'stats';
 export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute,allowedTabs,raidTargetId,setRaidTargetId,method,setMethod}: {
@@ -14,6 +16,27 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute,
 }){
  const result=useMemo(()=>calculateManualRaid(doc,path),[doc,path]);
  const [perTargetMethods,setPerTargetMethods]=useState<Record<string,RaidMethod>>({});
+ const [scenarioName,setScenarioName]=useState('');
+ const [scenarioError,setScenarioError]=useState<string|null>(null);
+ const saveScenario=useEditor(s=>s.saveRaidScenario);
+ const deleteScenario=useEditor(s=>s.deleteRaidScenario);
+ const comparisons=useMemo(()=>compareRaidScenarios(doc),[doc]);
+ const saveCurrentScenario=()=>{
+  const entries=result.details.map(d=>({id:d.id,method:perTargetMethods[d.id]??method}));
+  try{
+   saveScenario(scenarioName.trim()||`Raid-Variante ${(doc.raidScenarios?.length??0)+1}`,entries,raidTargetId||null);
+   setScenarioName('');setScenarioError(null);
+  }catch(error){setScenarioError(error instanceof Error?error.message:'Speichern fehlgeschlagen.');}
+ };
+ const restoreScenario=(id:string)=>{
+  const saved=doc.raidScenarios?.find(s=>s.id===id);
+  if(!saved)return;
+  setPath(saved.entries.map(e=>e.id));
+  setPerTargetMethods(Object.fromEntries(saved.entries.map(e=>[e.id,e.method])) as Record<string,RaidMethod>);
+  setMethod(saved.entries[0]?.method??method);
+  setRaidTargetId(saved.targetRoomId??'');
+  setScenarioError(null);
+ };
  const mixed=useMemo(()=>calculateMixedRaid(doc,result.details.map(d=>({id:d.id,method:perTargetMethods[d.id]??method}))),[doc,result,perTargetMethods,method]);
  const selectedMethodTotal=result.totals[method];
  const topology=useMemo(()=>structuralConnectivity(doc),[doc]);
@@ -74,6 +97,29 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute,
         {RAID_METHODS.filter(m=>mixed.byMethod[m].targets>0).map(m=><div key={m} className="statline"><span>{RAID_METHOD_LABELS[m]}</span><strong>{mixed.byMethod[m].count.toLocaleString('de-DE')} · {mixed.byMethod[m].sulfur.toLocaleString('de-DE')} S</strong></div>)}
         {mixed.unknownTargets>0&&<p className="gf-raid-partial">Bekannte Teilsumme: {mixed.knownSulfur.toLocaleString('de-DE')} Schwefel. {mixed.unknownTargets} von {mixed.totalTargets} Position(en) sind nicht berechenbar. Daher keine exakte Gesamtsumme.</p>}
        </>}
+     </div>
+     <div className="calculator-block gf-scenario-workbench" aria-label="Gespeicherte Raid-Varianten">
+       <div className="block-headline"><span>RAID-VARIANTEN VERGLEICHEN</span><span className="small-label">{comparisons.length}/{MAX_RAID_SCENARIOS} GESPEICHERT</span></div>
+       <p className="subtle-note">Mehrere Wege mit eigener Munitionswahl speichern und vergleichen. Kosten werden nach jeder Änderung am Blueprint neu berechnet. Nur vollständig kalkulierbare Varianten erhalten einen Kostenrang; das belegt keinen realen oder optimalen Raidweg.</p>
+       <div className="gf-scenario-save">
+         <input type="text" maxLength={100} value={scenarioName} onChange={e=>setScenarioName(e.target.value)}
+          placeholder={`Raid-Variante ${(doc.raidScenarios?.length??0)+1}`} aria-label="Name der Raid-Variante"/>
+         <button className="accent-wide" disabled={!mixed.lines.length||comparisons.length>=MAX_RAID_SCENARIOS}
+           onClick={saveCurrentScenario}><Plus size={14}/> Aktuelle Route speichern</button>
+       </div>
+       {scenarioError&&<p className="gf-raid-partial" role="alert">{scenarioError}</p>}
+       {!comparisons.length&&<p className="subtle-note">Noch keine Varianten vorhanden. Bauteile und Sprengmittel auswählen, dann die aktuelle Route speichern.</p>}
+       <div className="gf-scenario-list">{comparisons.map(row=><div className="gf-scenario-card" key={row.id}>
+         <div className="gf-scenario-heading"><strong>{row.rank!==null?`#${row.rank} · `:''}{row.name}</strong>
+          <span className={row.complete?'gf-scenario-complete':'gf-scenario-incomplete'}>{row.complete?'Berechenbar':`${row.unknownTargets} ungeklärt`}</span></div>
+         <div className="gf-scenario-meta"><span>{row.totalTargets} Ziele · {row.freePassages} freie Durchgänge</span>
+          <strong>{row.complete?`${row.totalSulfur!.toLocaleString('de-DE')} Schwefel`:'Keine exakte Summe'}</strong></div>
+         {!row.complete&&<small className="gf-scenario-subtotal">Bekannte Teilsumme: {row.knownSulfur.toLocaleString('de-DE')} Schwefel</small>}
+         <div className="gf-scenario-weapons">{RAID_METHODS.filter(m=>row.byMethod[m].targets>0).map(m=>
+          <span key={m}>{row.byMethod[m].count.toLocaleString('de-DE')} {RAID_METHOD_LABELS[m]}</span>)}</div>
+         <div className="gf-scenario-actions"><button onClick={()=>restoreScenario(row.id)}>Im Raid-Plan laden</button>
+          <button title="Variante löschen" aria-label={`${row.name} löschen`} onClick={()=>deleteScenario(row.id)}><Trash2 size={14}/></button></div>
+       </div>)}</div>
      </div>
      <div className="calculator-block gf-route-planner" aria-label="Automatische Raid-Routenplanung">
        <div className="block-headline"><span>AUTOMATISCHE ROUTENSUCHE</span><span className="small-label">GRAPH · REFERENZ</span></div>

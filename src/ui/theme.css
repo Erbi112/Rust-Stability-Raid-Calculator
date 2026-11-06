@@ -234,3 +234,22 @@ button{transition:border-color .15s,background .15s,box-shadow .15s}button:hover
 
 /* v0.12: explicit partial totals and per-target mixed explosive plan. */
 .gf-raid-counts{display:flex;gap:5px;flex-wrap:wrap;margin:9px 0;font-size:10px}.gf-raid-counts span{border:1px solid #516167;background:#1e2b31;padding:5px 7px;color:#d4dfda}.gf-raid-counts .is-unknown{border-color:#b46d38;color:#ffd5a9;background:#3d2b20}.gf-raid-partial{color:#ffce9c;background:#4b3021;border-left:3px solid #ec9954;padding:9px 10px;font-size:10px;line-height:1.55}.gf-cost-row>div{min-width:0}.gf-cost-line{display:inline-block;margin-top:5px;padding:3px 6px;background:#1c3b30;border:1px solid #46715e;color:#a9e0b8;font-size:10px;font-weight:800}.gf-mixed-line{display:grid;grid-template-columns:minmax(0,1fr) minmax(96px,118px);gap:8px;align-items:center;border-bottom:1px solid #394a4f;padding:8px 0}.gf-mixed-line>div{min-width:0}.gf-mixed-line strong,.gf-mixed-line small{display:block;overflow-wrap:anywhere}.gf-mixed-line strong{font-size:10px;color:#e4e4db}.gf-mixed-line small{font-size:9px;color:#c5b8a8;margin-top:4px}.gf-mixed-line select{min-width:0;width:100%;background:#26353d;border:1px solid #697279;color:#f0e4d5;font-size:10px;padding:7px 3px}.gf-mixed-total{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:10px 0;background:#2d302b;border:1px solid #776048;padding:10px;font-size:11px}.gf-mixed-total strong{font-size:15px;color:#efa05d;white-space:nowrap}
+
+/* v0.13: named raid-scenario workbench */
+.gf-scenario-save{display:grid;gap:6px;margin:10px 0}
+.gf-scenario-save input{min-width:0;width:100%;padding:9px 10px;background:#0d1a20;color:#f0e1d0;border:1px solid #5a6970;font:inherit}
+.gf-scenario-list{display:grid;gap:8px}
+.gf-scenario-card{min-width:0;border:1px solid #4b5e61;background:linear-gradient(155deg,#27343a,#172127);padding:10px}
+.gf-scenario-heading,.gf-scenario-meta{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.gf-scenario-heading strong{font-size:11px;min-width:0;overflow-wrap:anywhere}
+.gf-scenario-heading span{padding:4px 5px;white-space:nowrap;font-size:9px;border:1px solid}
+.gf-scenario-complete{border-color:#557b5d!important;color:#aee3bb}
+.gf-scenario-incomplete{border-color:#a9784b!important;color:#ffd1a0}
+.gf-scenario-meta{font-size:10px;margin-top:9px;color:#c4d0cb}
+.gf-scenario-meta strong{color:#eda568;font-size:12px;text-align:right}
+.gf-scenario-subtotal{display:block;color:#e1b891;font-size:9px;margin:7px 0}
+.gf-scenario-weapons{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+.gf-scenario-weapons span{border:1px solid #52636a;background:#19282e;padding:3px 6px;font-size:9px;color:#c3d9d3}
+.gf-scenario-actions{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:5px}
+.gf-scenario-actions button{min-height:30px;background:#33434a;border:1px solid #708088;font-size:10px;font-weight:800;display:grid;place-items:center}
+.gf-scenario-actions button:first-child{background:#69442f;border-color:#a87a4e}

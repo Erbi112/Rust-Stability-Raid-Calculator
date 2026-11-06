@@ -169,3 +169,13 @@ Betrieb: Dashboard/Blueprint Library/Stability/Settings in Vollbreite ohne Bauka
 - [x] Doppelte IDs und gelöschte Ziele ohne falsche Gesamtkosten behandelt
 - [x] Regressionstests für vollständige und unvollständige Raid-Routen
 - [ ] Vollständige Spielmechanik, Teilbeschädigung, Splash und Patch-Verifizierung sind weiterhin offen
+
+## v0.13 · Persistierte Raid-Szenarien
+
+- [x] Bis zu 24 Raid-Varianten pro Blueprint mit eigener Munitionswahl speichern
+- [x] Varianten neu laden und löschen, zusammen mit Blueprint JSON exportieren/importieren
+- [x] Kosten anhand der aktuellen Bauwerkselemente neu berechnen
+- [x] Rangfolge nur bei vollständig berechenbaren Szenarien
+- [x] Importvalidierung und Regressionstests für ungültige sowie veraltete Varianten
+- [ ] Ingame kalibrierte Schadensverteilung / Splash / echte Einsturzmechanik
+- [ ] E2E-Abnahme der Browseroberfläche

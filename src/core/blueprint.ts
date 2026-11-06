@@ -2,6 +2,7 @@
 import type { Point, Polygon, TileShape } from './geometry.ts';
 import type { BuildingSkinId } from './skins.ts';
 import type { BlueprintMetadata } from './library.ts';
+import type { RaidScenario } from './scenarios.ts';
 
 export type MaterialGrade = 'twig' | 'wood' | 'stone' | 'metal' | 'armored' | 'unknown';
 export type ObservationKind = 'observed' | 'inferred' | 'hypothesized';
@@ -98,6 +99,8 @@ export interface BlueprintDocument {
   states?: BlueprintState[];
   bunker?: BunkerMetadata;
   library?: BlueprintMetadata;
+  /** Saved raid variants, recalculated against current parts. */
+  raidScenarios?: RaidScenario[];
 }
 
 export function unmeasuredStability(): MeasuredStability {

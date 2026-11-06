@@ -145,3 +145,9 @@ Betrieb: Dashboard/Blueprint Library/Stability/Settings in Vollbreite ohne Bauka
 ## v0.12 · Mehrere Raid-Ziele und Mischkalkulation
 
 Die manuelle Raid-Analyse summiert alle berechenbaren Ziele je Methode. Bei unbekannten Bauteilen werden bekannte Kosten als Teilsumme und die Zahl offener Positionen angezeigt. Der gemischte Raid-Plan ermöglicht Rockets, C4, Satchels oder Explosivmunition je Bauteil; die Schwefelkosten werden transparent addiert. Doppelte oder entfernte Ziel-IDs verfälschen die Rechnung nicht. Siehe [Release v0.12](docs/RELEASE-v0.12.md).
+
+## v0.13 · Raid-Szenariovergleich
+
+Bis zu 24 benannte Raid-Szenarien werden im jeweiligen Blueprint gespeichert und mit JSON exportiert. Jede Variante hält eine Liste ausgewählter Bauteil-IDs, die pro Ziel gewählte Munitionsart sowie optional einen Zielraum. Die Tabelle wird bei jeder Bauplanänderung neu ausgewertet. Nur vollständig berechenbare Varianten werden nach Schwefel sortiert; fehlende Bauteile, unbekannte Kosten oder entfernte Zielräume führen zu einer ausdrücklich unvollständigen Kalkulation. Gleiche Referenzdaten sind keine Garantie für einen tatsächlich erreichbaren Weg, Splash Damage oder exakte aktuelle Rust-Mechaniken.
+
+Siehe [Release v0.13](docs/RELEASE-v0.13.md).
