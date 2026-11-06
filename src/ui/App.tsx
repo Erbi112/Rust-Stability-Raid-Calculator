@@ -224,7 +224,7 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied,routeIds}:{not
      {floor>0&&below&&tilesOnFloor(doc,floor-1).map(t=><Line key={'b'+t.id} points={points(t.polygon)} closed fill="#857866" opacity={.12} dash={[4,6]} stroke="#98836e"/>)}
      {tiles.map(t=>{const c=centroid(t.polygon),selectedTile=selected?.type==='tile'&&selected.id===t.id,routeTile=routeIds.includes(t.id);
        return <Group key={t.id}>
-         <Line points={points(t.polygon)} closed fill={t.skinId&&t.skinId!=='default'?getSkin(t.skinId).primary:MATERIAL_COLORS[t.grade]} opacity={.78} stroke={selectedTile?'#f7c78c':topology?.nodes[t.id]?.status==='anchor'?'#d1a44d':topology?.nodes[t.id]?.status==='linked'?'#72d6a0':topology?.nodes[t.id]?.status==='unverified'?'#ed6f63':'#ae9c87'} strokeWidth={(selectedTile?4:topology?3:2)/camera.scale}/>
+         <Line points={points(t.polygon)} closed fill={t.skinId&&t.skinId!=='default'?getSkin(t.skinId).primary:MATERIAL_COLORS[t.grade]} opacity={.78} stroke={routeTile?'#ff982b':selectedTile?'#f7c78c':topology?.nodes[t.id]?.status==='anchor'?'#d1a44d':topology?.nodes[t.id]?.status==='linked'?'#72d6a0':topology?.nodes[t.id]?.status==='unverified'?'#ed6f63':'#ae9c87'} strokeWidth={(routeTile?6:selectedTile?4:topology?3:2)/camera.scale}/>
          <Line points={points(t.polygon)} closed dash={[3,6]} stroke="#e3c7a3" opacity={.18} strokeWidth={.7/camera.scale}/>
          {t.kind==='floor-frame'&&<Line points={points(t.polygon.map(p=>({x:c.x+(p.x-c.x)*.82,y:c.y+(p.y-c.y)*.82})))} closed
            fill={t.floorInsert&&t.floorInsert!=='none'?'#576a6c':'#131d20'} opacity={.96} stroke={t.floorInsert&&t.floorInsert!=='none'?'#e9994d':'#cebea9'} strokeWidth={2/camera.scale}/>}
@@ -239,7 +239,7 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied,routeIds}:{not
      })}
      {doc.edges.filter(e=>e.floor===floor).map(e=><Group key={e.id}>
        <Line points={[e.a.x,e.a.y,e.b.x,e.b.y]} stroke="#0a0a09" strokeWidth={11/camera.scale} lineCap="round"/>
-       <Line points={[e.a.x,e.a.y,e.b.x,e.b.y]} stroke={e.insert==='garage-door'?'#ec9d46':e.kind==='doorway'?'#e58d58':e.kind==='window'?'#8ea0a3':e.skinId&&e.skinId!=='default'?getSkin(e.skinId).primary:'#d1b793'} strokeWidth={(e.insert==='garage-door'?8:5)/camera.scale} dash={e.insert==='garage-door'?[6,2]:e.kind==='doorway'?[7,5]:e.kind==='window'?[3,4]:undefined}/>
+       <Line points={[e.a.x,e.a.y,e.b.x,e.b.y]} stroke={routeIds.includes(e.id)?'#ffbb55':e.insert==='garage-door'?'#ec9d46':e.kind==='doorway'?'#e58d58':e.kind==='window'?'#8ea0a3':e.skinId&&e.skinId!=='default'?getSkin(e.skinId).primary:'#d1b793'} strokeWidth={(routeIds.includes(e.id)?11:e.insert==='garage-door'?8:5)/camera.scale} dash={e.insert==='garage-door'?[6,2]:e.kind==='doorway'?[7,5]:e.kind==='window'?[3,4]:undefined}/>
        {e.insert==='garage-door'&&<KonvaText x={(e.a.x+e.b.x)/2-40} y={(e.a.y+e.b.y)/2-16} width={80} align="center" text="GARAGENTOR" fontSize={9} fontStyle="bold" fill="#ffc080"/>}
      </Group>)}
      {(tool==='square'||tool==='triangle')&&slots.map((s,i)=><Line key={'s'+i} points={points(s.polygon)} closed stroke="#ad946f" opacity={.3} dash={[6,5]} strokeWidth={1/camera.scale}/>)}

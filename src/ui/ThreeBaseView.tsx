@@ -137,7 +137,7 @@ export function ThreeBaseView({doc,floor,routeIds=[]}:{doc:BlueprintDocument;flo
       for(let i=0;i<tile.polygon.length;i++){
         const [a,b]=edgeAt(tile.polygon,i),aw=worldXY(a),bw=worldXY(b);
         const dx=bw.x-aw.x,dz=bw.z-aw.z;
-        addBox(group,Math.hypot(dx,dz)+.09,.20,.18,COLORS[tile.grade],(aw.x+bw.x)/2,tileY(tile)-.1,(aw.z+bw.z)/2,-Math.atan2(dz,dx));
+        addBox(group,Math.hypot(dx,dz)+.09,.20,.18,routeIds.includes(tile.id)?0xffa34b:COLORS[tile.grade],(aw.x+bw.x)/2,tileY(tile)-.1,(aw.z+bw.z)/2,-Math.atan2(dz,dx));
       }
       if(tile.floorInsert&&tile.floorInsert!=='none'){
         const c={x:tile.polygon.reduce((s,p)=>s+p.x,0)/tile.polygon.length,z:tile.polygon.reduce((s,p)=>s+p.y,0)/tile.polygon.length};
@@ -156,7 +156,9 @@ export function ThreeBaseView({doc,floor,routeIds=[]}:{doc:BlueprintDocument;flo
       }
       geometry.dispose();
     }else{
-      const floorMesh=new THREE.Mesh(geometry,meshMaterial(tile.grade,false,tile.skinId));
+      const floorMaterial=meshMaterial(tile.grade,false,tile.skinId);
+      if(routeIds.includes(tile.id)){floorMaterial.color.setHex(0xff9c40);floorMaterial.emissive.setHex(0x361507);floorMaterial.map=null;}
+      const floorMesh=new THREE.Mesh(geometry,floorMaterial);
       floorMesh.position.y=tileY(tile); // upper face at matching building height
       floorMesh.castShadow=true;floorMesh.receiveShadow=true;group.add(floorMesh);
     }
@@ -178,8 +180,8 @@ export function ThreeBaseView({doc,floor,routeIds=[]}:{doc:BlueprintDocument;flo
     const dx=b.x-a.x,dz=b.z-a.z,angle=-Math.atan2(dz,dx),span=Math.hypot(dx,dz);
     const centerX=(a.x+b.x)/2,centerZ=(a.z+b.z)/2;
     const item=new THREE.Group();item.position.set(centerX,base,centerZ);item.rotation.y=angle;group.add(item);
-    const color=structureTint(edge.id)??COLORS[edge.grade];
-    const bar=(w:number,h:number,depth:number,x:number,y:number)=>addBox(item,w,h,depth,color,x,y,0,0,1,edge.skinId);
+    const color=routeIds.includes(edge.id)?0xffa34b:structureTint(edge.id)??COLORS[edge.grade];
+    const bar=(w:number,h:number,depth:number,x:number,y:number)=>addBox(item,w,h,depth,color,x,y,0,0,1,routeIds.includes(edge.id)?undefined:edge.skinId);
     const height=edge.kind==='half-wall'?1.5:edge.kind==='low-wall'?.72:WALL_HEIGHT;
     if(edge.kind==='wall'||edge.kind==='half-wall'||edge.kind==='low-wall')bar(span,height,.19,0,height/2);
     else if(edge.kind==='doorway'||edge.kind==='wall-frame'){
@@ -227,7 +229,7 @@ export function ThreeBaseView({doc,floor,routeIds=[]}:{doc:BlueprintDocument;flo
     textures.forEach(texture=>texture.dispose());
     renderer.dispose();renderer.domElement.remove();
   };
- },[doc,floor,mode,exploded,hull,top,showSupport]);
+ },[doc,floor,mode,exploded,hull,top,showSupport,routeIds]);
  return <div className="three-wrap">
    <div className="three-scene" ref={mount} aria-label="Interaktive räumliche 3D-Projektion des aktuellen Blueprints"/>
    {failure&&<div className="three-failure">{failure}</div>}
