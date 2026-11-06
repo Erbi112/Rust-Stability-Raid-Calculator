@@ -44,10 +44,10 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute,
      <div className="calculator-block hero-cost">
        <div className="block-eyebrow">MANUELL MARKIERTE RAID-ROUTE <span className="small-label">REFERENZWERTE</span></div>
        <div className="calc-mode gf-methods">{RAID_METHODS.map(m=><button key={m} className={method===m?'on':''} onClick={()=>setMethod(m)}>{RAID_METHOD_LABELS[m]}</button>)}</div>
-       <div className="big-calc"><span>{total===null?(selectedMethodTotal.knownTargets?`${selectedMethodTotal.knownCount}+`:'–'):total.toLocaleString('de-DE')}</span><div><strong>{RAID_METHOD_LABELS[method]}</strong><small>{sulfur===null?`Bekannt: ${selectedMethodTotal.knownSulfur.toLocaleString('de-DE')} Schwefel · Teilsumme`:`≈ ${sulfur.toLocaleString('de-DE')} Schwefel`}</small></div></div>
-       <div className="gf-raid-counts"><span>{result.details.length} ausgewählt</span><span>{selectedMethodTotal.knownTargets} berechenbar</span><span className={selectedMethodTotal.unknownTargets?'is-unknown':''}>{selectedMethodTotal.unknownTargets} offen</span></div>
+       <div className="big-calc"><span>{total===null?'?':total.toLocaleString('de-DE')}</span><div><strong>{RAID_METHOD_LABELS[method]}</strong><small>{sulfur===null?`Bekannt: ${selectedMethodTotal.knownSulfur.toLocaleString('de-DE')} Schwefel · Teilsumme`:`≈ ${sulfur.toLocaleString('de-DE')} Schwefel`}</small></div></div>
+       <div className="gf-raid-counts"><span>{result.details.length} ausgewählt</span><span>{selectedMethodTotal.knownTargets} bewertet</span><span>{result.details.filter(d=>d.counts[method]===0).length} frei</span><span className={selectedMethodTotal.unknownTargets?'is-unknown':''}>{selectedMethodTotal.unknownTargets} offen</span></div>
        {selectedMethodTotal.unknownTargets>0&&<p className="gf-raid-partial" role="status">Teilberechnung: {selectedMethodTotal.knownCount.toLocaleString('de-DE')} {RAID_METHOD_LABELS[method]} für {selectedMethodTotal.knownTargets} Ziel(e). {selectedMethodTotal.unknownTargets} weitere Ziele ohne belastbaren Referenzwert. Keine vollständige Gesamtsumme.</p>}
-       <p className="subtle-note">Nur von dir markierte Bauteile, als vollständige Ziele gerechnet. Kein automatischer optimaler Raidweg, keine Splash- oder Einsturzoptimierung.</p>
+       <p className="subtle-note">Kalkulation für die dokumentierten Durchgangshindernisse. Leere Türöffnungen/Wandrahmen zählen mit 0. Unbekannte Bauteile verhindern eine vollständige Gesamtsumme. Ohne Splash- oder Einsturzoptimierung.</p>
      </div>
      <div className="calculator-block">
        <div className="block-headline"><span>RAID-ZIELE</span><span className="counter">{result.details.length}</span></div>
@@ -70,9 +70,9 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute,
        </div>)}
        {!mixed.lines.length&&<p className="subtle-note">Wähle zuerst Bauteile im Plan aus.</p>}
        {!!mixed.lines.length&&<>
-        <div className="gf-mixed-total"><span>{mixed.complete?'Gesamter Schwefelbedarf':'Schwefel-Teilsumme'}</span><strong>{mixed.knownSulfur.toLocaleString('de-DE')} S{mixed.complete?'':' + offen'}</strong></div>
+        <div className="gf-mixed-total"><span>{mixed.complete?'Gesamter Schwefelbedarf':'Schwefel-Teilsumme'}</span><strong>{mixed.complete?`${mixed.knownSulfur.toLocaleString('de-DE')} S`:'Nicht vollständig berechenbar'}</strong></div>
         {RAID_METHODS.filter(m=>mixed.byMethod[m].targets>0).map(m=><div key={m} className="statline"><span>{RAID_METHOD_LABELS[m]}</span><strong>{mixed.byMethod[m].count.toLocaleString('de-DE')} · {mixed.byMethod[m].sulfur.toLocaleString('de-DE')} S</strong></div>)}
-        {mixed.unknownTargets>0&&<p className="gf-raid-partial">{mixed.unknownTargets} von {mixed.totalTargets} Position(en) sind nicht berechenbar. Die Summe ist daher keine vollständige Raid-Kalkulation.</p>}
+        {mixed.unknownTargets>0&&<p className="gf-raid-partial">Bekannte Teilsumme: {mixed.knownSulfur.toLocaleString('de-DE')} Schwefel. {mixed.unknownTargets} von {mixed.totalTargets} Position(en) sind nicht berechenbar. Daher keine exakte Gesamtsumme.</p>}
        </>}
      </div>
      <div className="calculator-block gf-route-planner" aria-label="Automatische Raid-Routenplanung">

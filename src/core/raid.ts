@@ -12,7 +12,20 @@ export type RaidMethodTotal={
 export type MixedRaidEntry={id:string;method:RaidMethod};
 export type MixedRaidLine={id:string;label:string;method:RaidMethod;count:number|null;sulfur:number|null;
  reason?:string;sourceUrl:string|null;status:ReferenceStatus;};
+/** A raid route crosses an opening; it does not need to demolish its frame.
+ * The blueprint must document an opening without a fitted door or garage gate.
+ * Unrecorded edges are still unknown, not automatically free.
+ */
+export function isRecordedOpenPassage(edge:BuildingEdge):boolean{
+ return (edge.kind==='doorway'||edge.kind==='wall-frame')&&(!edge.insert||edge.insert==='none');
+}
 export function estimateTarget(target:BuildingTile|BuildingEdge):RaidEstimate{
+ if(!('polygon' in target)&&isRecordedOpenPassage(target)){
+  const zero:RaidCounts={rockets:0,c4:0,satchels:0,'explo-ammo':0};
+  return {id:target.id,label:target.kind==='doorway'?'Freie Türöffnung':'Freier Wandrahmen',
+   rockets:0,c4:0,satchels:0,exploAmmo:0,counts:zero,sourceUrl:null,status:'model-assumption',
+   reason:'Kein eingebautes Hindernis im Blueprint erfasst: Durchgang ohne Sprengmittel. Reale Einbauten vor Ort prüfen.'};
+ }
  const result=resolveDestructionProfile(target);
  return {id:target.id,label:result.label,rockets:result.counts.rockets,c4:result.counts.c4,
    satchels:result.counts.satchels,exploAmmo:result.counts['explo-ammo'],counts:result.counts,

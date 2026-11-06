@@ -59,3 +59,44 @@ test('empty route has zero count, not missing reference',()=>{
  assert.equal(manual.totals.rockets.unknownTargets,0);
  assert.equal(mixed.totalSulfur,0);
 });
+
+
+test('screenshot regression: empty wall frame and doorway are free passages, not unknown targets',()=>{
+ const doc=makePlan();
+ const existing=doc.edges[0]!;
+ doc.edges=[
+  {...existing,id:'empty-frame',kind:'wall-frame',insert:'none'},
+  {...existing,id:'stone-wall',kind:'wall',insert:'none'},
+  {...existing,id:'empty-doorway',kind:'doorway',insert:'none'}
+ ];
+ const result=calculateManualRaid(doc,['empty-frame','stone-wall','empty-doorway']);
+ assert.deepEqual(result.details.map(d=>d.rockets),[0,4,0]);
+ assert.equal(result.totals.rockets.count,4);
+ assert.equal(result.totals.rockets.sulfur,5600);
+ assert.equal(result.totals.rockets.unknownTargets,0);
+ assert.equal(result.totals.rockets.knownTargets,3);
+ assert.equal(result.totals.c4.count,2);
+ assert.equal(result.totals.satchels.count,10);
+ assert.equal(result.totals['explo-ammo'].count,185);
+ const mixed=calculateMixedRaid(doc,[
+  {id:'empty-frame',method:'c4'},{id:'stone-wall',method:'rockets'},{id:'empty-doorway',method:'satchels'}
+ ]);
+ assert.equal(mixed.complete,true);
+ assert.equal(mixed.totalSulfur,5600);
+ assert.deepEqual(mixed.lines.map(d=>d.count),[0,4,0]);
+});
+test('installed garage door still costs explosives; unknown window still blocks exact total',()=>{
+ const doc=makePlan();
+ const original=doc.edges[0]!;
+ doc.edges=[
+   {...original,id:'garage',kind:'wall-frame',insert:'garage-door'},
+   {...original,id:'unknown-window',kind:'window',insert:'none'}
+ ];
+ const a=calculateManualRaid(doc,['garage']);
+ assert.equal(a.totals.rockets.count,3);
+ assert.equal(a.totals.rockets.complete,true);
+ const b=calculateManualRaid(doc,['garage','unknown-window']);
+ assert.equal(b.totals.rockets.count,null);
+ assert.equal(b.totals.rockets.knownCount,3);
+ assert.equal(b.totals.rockets.unknownTargets,1);
+});

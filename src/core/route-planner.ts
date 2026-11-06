@@ -5,7 +5,7 @@
  * in-game socket/stability optimizations. No Bayesian confidence claims.
  */
 import { edgeAt, sameEdge, type Point } from './geometry.ts';
-import { estimateTarget, SULFUR_PER, RAID_REFERENCE, type RaidMethod } from './raid.ts';
+import { estimateTarget, isRecordedOpenPassage, SULFUR_PER, RAID_REFERENCE, type RaidMethod } from './raid.ts';
 import { tileHeight } from './levels.ts';
 import type { BlueprintDocument, BuildingTile, BuildingEdge } from './blueprint.ts';
 import type { Candidate, RecognitionResult, RecognitionTransform } from './recognition.ts';
@@ -44,7 +44,7 @@ const zero=(from:string,to:string,kind:RouteCrossing,label:string,floor:number,a
 function barrier(from:string,to:string,edge:BuildingEdge|BuildingTile|undefined,kind:RouteCrossing,
  floor:number,a:Point|null,b:Point|null,method:RaidMethod):RouteStep {
  if(!edge)return {from,to,kind:'unrecorded',label:'Nicht dokumentierte Kante',floor,a,b,barrierId:null,methodCount:null,sulfur:null,uncertain:true};
- if('a' in edge && (edge.kind==='doorway'||edge.kind==='wall-frame')&&(!edge.insert||edge.insert==='none')){
+ if('a' in edge && isRecordedOpenPassage(edge)){
   return zero(from,to,kind,'Dokumentierte freie Öffnung',floor,a,b);
  }
  if('polygon' in edge&&edge.kind==='floor-frame'&&(!edge.floorInsert||edge.floorInsert==='none')){
