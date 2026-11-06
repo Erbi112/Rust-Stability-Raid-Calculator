@@ -19,7 +19,7 @@ function worldXY(p:Point){const q=planToWorld(p);return {x:q.x,z:q.z};}
 function owningTile(doc:BlueprintDocument,e:BuildingEdge):BuildingTile|undefined {
   return doc.tiles.find(t=>t.floor===e.floor&&t.polygon.some((_,i)=>{const [a,b]=edgeAt(t.polygon,i);return sameEdge(a,b,e.a,e.b);}));
 }
-export function ThreeBaseView({doc,floor}:{doc:BlueprintDocument;floor:number}){
+export function ThreeBaseView({doc,floor,routeIds=[]}:{doc:BlueprintDocument;floor:number;routeIds?:readonly string[]}){
  const mount=useRef<HTMLDivElement>(null),[mode,setMode]=useState<ViewFloorMode>('all'),[exploded,setExploded]=useState(false);
  const fixOldHeights=useEditor(s=>s.fixOldFloorHeights);
  const staleTiles=misplacedUpperTiles(doc);

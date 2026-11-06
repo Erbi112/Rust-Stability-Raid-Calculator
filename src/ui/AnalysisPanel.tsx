@@ -3,6 +3,7 @@ import { Activity, ArrowRight, BarChart3, Crosshair, Database, HelpCircle, Layer
 import type { BlueprintDocument } from '../core/blueprint.ts';
 import { MATERIAL_NAMES, WALL_KIND_NAMES } from '../core/editor.ts';
 import { calculateManualRaid } from '../core/raid.ts';
+import { planRaidRoutes, type RaidRoute } from '../core/route-planner.ts';
 import { structuralConnectivity, simulateStructuralRemoval } from '../core/stability.ts';
 import type { SelectedEntity } from '../core/editor.ts';
 export type AnalysisTab='raid'|'stability'|'stats';
@@ -15,6 +16,12 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute}
  const selectedStatus=selected?topology.nodes[selected.id]:undefined;
  const impact=useMemo(()=>selected&&topology.nodes[selected.id]?simulateStructuralRemoval(doc,selected.id):null,[doc,selected,topology]);
  const [method,setMethod]=useState<'rockets'|'c4'>('rockets');
+ const [routeTargetId,setRouteTargetId]=useState<string>('');
+ const targetId=doc.tiles.some(t=>t.id===routeTargetId)?routeTargetId:'';
+ const routePlans=useMemo(()=>targetId?planRaidRoutes(doc,targetId,method,4):null,[doc,targetId,method]);
+ const preferredRoute=routePlans?.documented[0]??null;
+ const conditionalRoute=routePlans?.exploratory[0]??null;
+ const adopt=(route:RaidRoute)=>setPath([...route.barrierIds]);
  const currentSelected=selected?(selected.type==='edge'?doc.edges.find(e=>e.id===selected.id):doc.tiles.find(t=>t.id===selected.id)):undefined;
  const inPath=!!selected&&path.includes(selected.id);
  const estimates=doc.tiles.length+doc.edges.length;
@@ -48,8 +55,36 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute}
          {!result.details.length&&<div className="empty-route"><Crosshair size={24}/><span>Noch keine Raid-Ziele markiert</span></div>}</div>
        {!!path.length&&<button className="muted-wide" onClick={()=>setPath([])}><Trash2 size={13}/> Route leeren</button>}
      </div>
-     <div className="calculator-block future-module"><div className="block-headline"><span>OPTIMALER RAIDWEG</span><span className="small-label">IN ENTWICKLUNG</span></div>
-      <p>Automatisches Wegfinden zu Core / Loot folgt mit verifizierter Raum- und Stability-Engine. Keine erfundenen „Best Path“-Ergebnisse.</p></div>
+     <div className="calculator-block gf-route-planner" aria-label="Automatische Raid-Routenplanung">
+       <div className="block-headline"><span>AUTOMATISCHE ROUTENSUCHE</span><span className="small-label">GRAPH · REFERENZ</span></div>
+       <p className="subtle-note">Wähle einen Zielraum (Core/Loot) selbst. Der Graph sucht ab der Außenkante über dokumentierte Wände, Türen und übereinanderliegende Bodenflächen. Er erfindet keine Innenwände.</p>
+       <label className="gf-route-label" htmlFor="gf-route-goal">Zielraum / Grundfläche</label>
+       <select id="gf-route-goal" className="gf-route-select" value={targetId} onChange={e=>setRouteTargetId(e.target.value)}>
+         <option value="">Ziel auswählen …</option>
+         {doc.tiles.map(t=><option key={t.id} value={t.id}>F{t.floor} · {t.kind} · {t.id.slice(0,9)}</option>)}
+       </select>
+       {selected?.type==='tile'&&doc.tiles.some(t=>t.id===selected.id)&&<button className="muted-wide" onClick={()=>setRouteTargetId(selected.id)}>Markierte Grundfläche als Ziel setzen</button>}
+       {routePlans&&<>
+         <div className="gf-route-result">
+          <div className="gf-route-result-head"><strong>Günstigster modellierter Weg</strong><span>{method==='rockets'?'Rockets':'C4'}</span></div>
+          {preferredRoute?<>
+           <div className="gf-route-total"><strong>{preferredRoute.methodTotal} {method==='rockets'?'Rockets':'C4'}</strong><span>{preferredRoute.sulfur?.toLocaleString('de-DE')} Schwefel</span></div>
+           <small>{preferredRoute.steps.length} Übergänge · Eintritt über F{preferredRoute.entryFloor} · ohne unbekannte Kanten</small>
+           <button className="accent-wide" onClick={()=>adopt(preferredRoute)}>Route in manuellen Plan übernehmen</button>
+          </>:<p className="gf-route-unknown">Kein vollständig modellierter Zugang zum Ziel erfasst.</p>}
+         </div>
+         {routePlans.documented.slice(1,4).map((route,i)=><button className="gf-route-alternative" key={route.entryKey} onClick={()=>adopt(route)}>
+           <span>Alternative {i+2}: {route.methodTotal} {method==='rockets'?'Rockets':'C4'}</span><b>{route.sulfur?.toLocaleString('de-DE')} S</b>
+         </button>)}
+         {!preferredRoute&&conditionalRoute&&<div className="gf-route-conditional">
+           <strong>Nur hypothetische Route gefunden</strong>
+           <span>{conditionalRoute.uncertainSteps} unbekannte Kante(n) · {conditionalRoute.knownSulfur.toLocaleString('de-DE')} Schwefel nur für bekannte Hindernisse</span>
+           <p>Keine belastbare Gesamtkostenangabe. Trage fehlende Wände und Durchgänge nach.</p>
+         </div>}
+         {routePlans.warnings.slice(0,2).map(w=><p className="gf-route-hint" key={w}>{w}</p>)}
+       </>}
+       <p className="gf-route-hint">Keine Splash-Damage-, Soft-Side-, Einsturz- oder Bunker-Mechanik. Richtwerte sind noch nicht für den eingetragenen Rust-Patch validiert.</p>
+     </div>
      <div className="reference-note"><HelpCircle size={14}/><span>Richtwerte nach öffentlich dokumentierten Rust-Raid-Tabellen; nicht patch-validiert. <a href="https://wiki.facepunch.com/rust/item/ammo.rocket.basic" target="_blank" rel="noreferrer">Quelle</a> · <a href="https://rust.wiki/calculators/raid" target="_blank" rel="noreferrer">Vergleich</a></span></div>
    </>}
    {tab==='stability'&&<>

@@ -143,3 +143,16 @@ Die Arbeit erfolgt in **größeren integrierten Release-Blöcken**. Pro Block we
 - [ ] License-cleared, quality-assured real-world base catalog at scale; currently only two original demos
 - [ ] Calibrated model probabilities based on observed frequencies and in-game reference sets
 - [ ] Multi-candidate route optimization, genuine Rust damage/collapse physics (next major block)
+
+### v0.10 · Integrated Raid Route Intelligence (2026-11-06)
+
+- [x] Documented perimeter-to-target graph traversal with Rocket/C4 reference costs
+- [x] Explicit unknown-edge handling; conditional routes never receive fabricated totals
+- [x] Stair/vertical floor crossing only where aligned, adjacent levels and known floor pieces permit it
+- [x] Multi-candidate route comparison with geometrically normalized entry locations
+- [x] Conservative shared-entry minimax strategy, only for fully costed candidate routes
+- [x] Manual route adoption and highlighted barriers in 2D and 3D
+- [x] Regression tests for route logic, candidate alignment and misleading missing data
+- [ ] Verify route outcomes and ammo damage values against real Rust patch, including splash/partial HP and stability collapse
+- [ ] Curated and permission-cleared blueprint corpus with verified core/loot markers
+- [ ] UX/E2E verification in the user's interactive browser

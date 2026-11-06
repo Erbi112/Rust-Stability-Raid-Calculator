@@ -121,8 +121,8 @@ function ContextEditor({menu,onClose,onNotice,activePiece}:{menu:ContextMenu;onC
  </div>;
 }
 
-function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:string)=>void;activePiece:CatalogPiece|null;
- onSelectPiece:(id:string|null)=>void;onApplied:()=>void}){
+function EditorCanvas({notify,activePiece,onSelectPiece,onApplied,routeIds}:{notify:(s:string)=>void;activePiece:CatalogPiece|null;
+ onSelectPiece:(id:string|null)=>void;onApplied:()=>void;routeIds:readonly string[]}){
  const doc=useEditor(s=>s.doc),floor=useEditor(s=>s.floor),tool=useEditor(s=>s.tool),setTool=useEditor(s=>s.setTool);
  const selected=useEditor(s=>s.selected),select=useEditor(s=>s.select),attach=useEditor(s=>s.attach),root=useEditor(s=>s.root);
  const wrapper=useRef<HTMLDivElement>(null),stage=useRef<Konva.Stage>(null),pan=useRef(false),start=useRef<Point|null>(null),skip=useRef(false);
@@ -222,7 +222,7 @@ function EditorCanvas({notify,activePiece,onSelectPiece,onApplied}:{notify:(s:st
        <Line key={'x'+i} points={[i*50,-5000,i*50,5000]} stroke={i%2===0?'#68777c':'#5f6b70'} opacity={i%2===0?.28:.14} strokeWidth={1/camera.scale}/>,
        <Line key={'y'+i} points={[-5000,i*50,5000,i*50]} stroke={i%2===0?'#68777c':'#5f6b70'} opacity={i%2===0?.28:.14} strokeWidth={1/camera.scale}/>])}
      {floor>0&&below&&tilesOnFloor(doc,floor-1).map(t=><Line key={'b'+t.id} points={points(t.polygon)} closed fill="#857866" opacity={.12} dash={[4,6]} stroke="#98836e"/>)}
-     {tiles.map(t=>{const c=centroid(t.polygon),selectedTile=selected?.type==='tile'&&selected.id===t.id;
+     {tiles.map(t=>{const c=centroid(t.polygon),selectedTile=selected?.type==='tile'&&selected.id===t.id,routeTile=routeIds.includes(t.id);
        return <Group key={t.id}>
          <Line points={points(t.polygon)} closed fill={t.skinId&&t.skinId!=='default'?getSkin(t.skinId).primary:MATERIAL_COLORS[t.grade]} opacity={.78} stroke={selectedTile?'#f7c78c':topology?.nodes[t.id]?.status==='anchor'?'#d1a44d':topology?.nodes[t.id]?.status==='linked'?'#72d6a0':topology?.nodes[t.id]?.status==='unverified'?'#ed6f63':'#ae9c87'} strokeWidth={(selectedTile?4:topology?3:2)/camera.scale}/>
          <Line points={points(t.polygon)} closed dash={[3,6]} stroke="#e3c7a3" opacity={.18} strokeWidth={.7/camera.scale}/>
@@ -317,7 +317,7 @@ function App(){
  return <div className="app-shell">
   <header className="hero-topbar">
    <div className="hero-brand"><div className="hero-mark"><Hammer size={32}/></div><div><strong>GHOSTFRAME <span>STUDIO</span></strong><small>RUST BASE PLANNER / STABILITY INTELLIGENCE / RAID ANALYSIS</small></div></div>
-   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.8.0</span></div>
+   <div className="hero-project"><span>AKTUELLES PROJEKT</span><input className="project-name" value={doc.name} onChange={e=>rename(e.target.value)} aria-label="Projektname"/><span className="version-tag">v0.10.0</span></div>
    <div className="top-actions"><span className="save-state"><Save size={13}/>{saved}</span>
     <button className="icon-button" onClick={undo} disabled={!past.length} title="Rückgängig"><Undo2 size={17}/></button>
     <button className="icon-button" onClick={redo} disabled={!future.length} title="Wiederholen"><Redo2 size={17}/></button>
@@ -375,8 +375,8 @@ function App(){
       </div>
       <div className={`editor-zone view-${view}`}>
        {(view==='2d'||view==='split')&&<div className="two-d-view"><EditorCanvas notify={setNotice} activePiece={activePiece}
-         onSelectPiece={pick} onApplied={()=>setActiveId(null)}/></div>}
-       {(view==='3d'||view==='split')&&<div className="three-d-view"><ThreeBaseView doc={doc} floor={floor}/></div>}
+         onSelectPiece={pick} onApplied={()=>setActiveId(null)} routeIds={raidPath}/></div>}
+       {(view==='3d'||view==='split')&&<div className="three-d-view"><ThreeBaseView doc={doc} floor={floor} routeIds={raidPath}/></div>}
       </div>
       <div className="studio-footnote"><span><span className="status-light"/> Live-Blueprint-Synchronisierung</span><span>Wände nur dort, wo erfasst · 3D-Vorschau ist keine Physiksimulation</span></div>
     </>}

@@ -1,10 +1,19 @@
 # GHOSTFRAME · Rust Base Planner, Stability & Raid Intelligence
 
-![Version](https://img.shields.io/badge/version-v0.9.0-cb682f) ![CI](https://img.shields.io/badge/CI-tests%20%2B%20build-394c51)
+![Version](https://img.shields.io/badge/version-v0.10.0-cb682f) ![CI](https://img.shields.io/badge/CI-tests%20%2B%20build-394c51)
 
 [**▶ GHOSTFRAME im Browser öffnen**](https://erbi112.github.io/Rust-Stability-Raid-Calculator/)
 
 Browser-based blueprint editor for the game **Rust**, independently designed and not affiliated with Facepunch Studios. Original vector illustrations and original interface assets; no copied game graphics.
+
+## Release v0.10 · Raid Route Intelligence (graph model)
+
+- **Automatic path planning:** Choose a real ground tile as the target (e.g. suspected Core). Search for least reference Rocket or C4 cost from outside through **documented** walls, doors, wall frames, aligned floor slabs and ladder hatches. The chosen method and sulfur totals are stated per route.
+- **Alternative entry points:** Multiple exterior candidates are compared; barriers used by the chosen path can be adopted into the manual raid route and highlighted in 2D and 3D.
+- **Unknown is not free:** Undocumented wall edges are excluded from fully modelled routes. When only an exploratory route exists, unknown crossings and the **known-only** sulfur subtotal are reported; a fictitious final cost is never invented.
+- **Multi-candidate planner:** In Blueprint Library, explicitly choose an observed target and up to six matching blueprints. Candidate-specific routes are shown with mapping gaps and contradictions. A shared **minimax** entry is reported only when every candidate offers a costed route through the same geospatial perimeter after inverse alignment (no fictitious probabilities).
+- **Performance:** A reverse Dijkstra search from the target evaluates all exterior entry points in one traversal per objective, with regression tests for doors, unknown barriers, vertical travel, shifted candidate geometry, common entries and invalid goals.
+- **Not a validated Rust damage simulator:** No splash damage, partial-health optimization, soft-side mechanics, collapses, external multi-stage entry, or guessed bunker states. Resource counts are published **reference** counts, not tested against the current Rust patch. Known open frames and vertical aligned floor slots are planning assumptions and should be verified in-game.
 
 ## Release v0.9 · Blueprint Recognition & Comparative Analysis
 
@@ -50,7 +59,7 @@ The current catalog initially ships with two **own demo blueprints** and whateve
 
 1. **3D is a visualization**, not a Rust-valid building physics solver. Stairs, roof forms, and some door frame types have **schematic** geometry; some socket and height placements are not validated against the current game patch.
 2. The optional 3D **Hülle** toggle renders guessed outer-wall previews; this is **never** saved as factual building evidence.
-3. **Raid prices** use public reference tables for intact standard targets and simple additive manual paths, no partial-health damage simulation, splash damage, building collapse or automatic search for the cheapest route.
+3. **Raid prices and auto-graph routes** use public reference tables for intact standard targets. v0.10 adds model-based automatic graph search but not a game-verified optimum: no partial-health simulation, splash damage, collapse, or unrecorded internal structure assumptions.
 4. Rust's exact stability, current patch variations, statistically calibrated hidden-base recognition, collaborative server storage, and automated raid optimization follow in larger future releases.
 
 ### Raid reference sources
