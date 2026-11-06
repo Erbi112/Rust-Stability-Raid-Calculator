@@ -62,7 +62,7 @@ test('empty route has zero count, not missing reference',()=>{
 
 
 test('screenshot regression: empty wall frame and doorway are free passages, not unknown targets',()=>{
- const doc=makePlan();
+ const doc=plan();
  const existing=doc.edges[0]!;
  doc.edges=[
   {...existing,id:'empty-frame',kind:'wall-frame',insert:'none'},
@@ -86,7 +86,7 @@ test('screenshot regression: empty wall frame and doorway are free passages, not
  assert.deepEqual(mixed.lines.map(d=>d.count),[0,4,0]);
 });
 test('installed garage door still costs explosives; unknown window still blocks exact total',()=>{
- const doc=makePlan();
+ const doc=plan();
  const original=doc.edges[0]!;
  doc.edges=[
    {...original,id:'garage',kind:'wall-frame',insert:'garage-door'},
