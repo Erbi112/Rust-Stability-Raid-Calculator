@@ -141,3 +141,7 @@ See [v0.8 release notes](docs/RELEASE-v0.8.md).
 ## v0.11 · Raid Reference & Module Workspaces
 
 Betrieb: Dashboard/Blueprint Library/Stability/Settings in Vollbreite ohne Baukatalog. Der Raid Calculator benutzt eine eigene Baukomponenten-Auswahl und 2D-/3D-Inspektoren ohne Bau-Editierfunktionen. Kontextmenüs bleiben im sichtbaren Browserbereich. Vier quellenbezogene Raid-Methoden; keine Ingame-Physik-Simulation. Details: [Release v0.11](docs/RELEASE-v0.11.md).
+
+## v0.12 · Mehrere Raid-Ziele und Mischkalkulation
+
+Die manuelle Raid-Analyse summiert alle berechenbaren Ziele je Methode. Bei unbekannten Bauteilen werden bekannte Kosten als Teilsumme und die Zahl offener Positionen angezeigt. Der gemischte Raid-Plan ermöglicht Rockets, C4, Satchels oder Explosivmunition je Bauteil; die Schwefelkosten werden transparent addiert. Doppelte oder entfernte Ziel-IDs verfälschen die Rechnung nicht. Siehe [Release v0.12](docs/RELEASE-v0.12.md).

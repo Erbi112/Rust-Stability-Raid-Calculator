@@ -161,3 +161,11 @@ Die Arbeit erfolgt in **größeren integrierten Release-Blöcken**. Pro Block we
 ## v0.11 · Raid Reference & Module Workspaces
 
 Betrieb: Dashboard/Blueprint Library/Stability/Settings in Vollbreite ohne Baukatalog. Der Raid Calculator benutzt eine eigene Baukomponenten-Auswahl und 2D-/3D-Inspektoren ohne Bau-Editierfunktionen. Kontextmenüs bleiben im sichtbaren Browserbereich. Vier quellenbezogene Raid-Methoden; keine Ingame-Physik-Simulation. Details: [Release v0.11](docs/RELEASE-v0.11.md).
+
+## v0.12 · Multi-Target Raid Planner
+- [x] Mehrere Raid-Ziele werden pro Methode korrekt summiert; unbekannte Positionen verbergen die Teilsumme nicht
+- [x] Berechnete Mengen, offene Bauteile und Schwefelwerte werden getrennt ausgewiesen
+- [x] Gemischte Sprengmittelwahl pro Ziel mit Methode-Summen und Gesamtschwefelbedarf
+- [x] Doppelte IDs und gelöschte Ziele ohne falsche Gesamtkosten behandelt
+- [x] Regressionstests für vollständige und unvollständige Raid-Routen
+- [ ] Vollständige Spielmechanik, Teilbeschädigung, Splash und Patch-Verifizierung sind weiterhin offen

@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Activity, ArrowRight, BarChart3, Crosshair, Database, HelpCircle, Layers3, Plus, Rocket, Shield, Trash2 } from 'lucide-react';
 import type { BlueprintDocument } from '../core/blueprint.ts';
 import { MATERIAL_NAMES, WALL_KIND_NAMES } from '../core/editor.ts';
-import { calculateManualRaid, RAID_REFERENCE, RAID_METHODS, RAID_METHOD_LABELS, type RaidMethod } from '../core/raid.ts';
+import { calculateManualRaid, calculateMixedRaid, RAID_REFERENCE, RAID_METHODS, RAID_METHOD_LABELS, type RaidMethod } from '../core/raid.ts';
 import { planRaidRoutes, type RaidRoute } from '../core/route-planner.ts';
 import { structuralConnectivity, simulateStructuralRemoval } from '../core/stability.ts';
 import type { SelectedEntity } from '../core/editor.ts';
@@ -13,6 +13,9 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute,
  raidTargetId:string;setRaidTargetId:(id:string)=>void;method:RaidMethod;setMethod:(m:RaidMethod)=>void;
 }){
  const result=useMemo(()=>calculateManualRaid(doc,path),[doc,path]);
+ const [perTargetMethods,setPerTargetMethods]=useState<Record<string,RaidMethod>>({});
+ const mixed=useMemo(()=>calculateMixedRaid(doc,result.details.map(d=>({id:d.id,method:perTargetMethods[d.id]??method}))),[doc,result,perTargetMethods,method]);
+ const selectedMethodTotal=result.totals[method];
  const topology=useMemo(()=>structuralConnectivity(doc),[doc]);
  const selectedStatus=selected?topology.nodes[selected.id]:undefined;
  const impact=useMemo(()=>selected&&topology.nodes[selected.id]?simulateStructuralRemoval(doc,selected.id):null,[doc,selected,topology]);
@@ -28,8 +31,8 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute,
  const avg=measured.length?Math.round(measured.reduce((s,v)=>s+v,0)/measured.length):null;
  const lowest=measured.length?Math.min(...measured):null;
  const grades=Object.entries(doc.tiles.reduce<Record<string,number>>((a,t)=>(a[MATERIAL_NAMES[t.grade]]=(a[MATERIAL_NAMES[t.grade]]??0)+1,a),{}));
- const total=result.totals[method].count;
- const sulfur=result.totals[method].sulfur;
+ const total=selectedMethodTotal.count;
+ const sulfur=selectedMethodTotal.sulfur;
  return <aside className={`analysis-panel ${activeRoute?'focus-panel':''}`}>
    <div className="panel-head"><span><Crosshair size={17}/> RAID & STRUKTUR-ANALYSE</span></div>
    <div className="panel-tabs">
@@ -41,7 +44,9 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute,
      <div className="calculator-block hero-cost">
        <div className="block-eyebrow">MANUELL MARKIERTE RAID-ROUTE <span className="small-label">REFERENZWERTE</span></div>
        <div className="calc-mode gf-methods">{RAID_METHODS.map(m=><button key={m} className={method===m?'on':''} onClick={()=>setMethod(m)}>{RAID_METHOD_LABELS[m]}</button>)}</div>
-       <div className="big-calc"><span>{total===null?'–':total}</span><div><strong>{RAID_METHOD_LABELS[method]}</strong><small>{sulfur===null?'Nicht vollständig berechenbar':`≈ ${sulfur.toLocaleString('de-DE')} Schwefel`}</small></div></div>
+       <div className="big-calc"><span>{total===null?(selectedMethodTotal.knownTargets?`${selectedMethodTotal.knownCount}+`:'–'):total.toLocaleString('de-DE')}</span><div><strong>{RAID_METHOD_LABELS[method]}</strong><small>{sulfur===null?`Bekannt: ${selectedMethodTotal.knownSulfur.toLocaleString('de-DE')} Schwefel · Teilsumme`:`≈ ${sulfur.toLocaleString('de-DE')} Schwefel`}</small></div></div>
+       <div className="gf-raid-counts"><span>{result.details.length} ausgewählt</span><span>{selectedMethodTotal.knownTargets} berechenbar</span><span className={selectedMethodTotal.unknownTargets?'is-unknown':''}>{selectedMethodTotal.unknownTargets} offen</span></div>
+       {selectedMethodTotal.unknownTargets>0&&<p className="gf-raid-partial" role="status">Teilberechnung: {selectedMethodTotal.knownCount.toLocaleString('de-DE')} {RAID_METHOD_LABELS[method]} für {selectedMethodTotal.knownTargets} Ziel(e). {selectedMethodTotal.unknownTargets} weitere Ziele ohne belastbaren Referenzwert. Keine vollständige Gesamtsumme.</p>}
        <p className="subtle-note">Nur von dir markierte Bauteile, als vollständige Ziele gerechnet. Kein automatischer optimaler Raidweg, keine Splash- oder Einsturzoptimierung.</p>
      </div>
      <div className="calculator-block">
@@ -50,9 +55,25 @@ export function AnalysisPanel({doc,selected,path,setPath,tab,setTab,activeRoute,
          {inPath?<Trash2 size={16}/>:<Plus size={16}/>} {inPath?'Aus Route entfernen':'Ausgewähltes Bauteil zur Route'}
        </button>}
        {!currentSelected&&<p className="subtle-note">Klicke im 2D-Plan auf eine Wand, Tür oder Fläche und füge das Element hier zur Raid-Route hinzu.</p>}
-       <div className="route-list">{result.details.map((d,i)=><div key={d.id} className="route-row"><span className="route-step">{i+1}</span><div><strong>{d.label}</strong><small>{d.reason??`${d.rockets} Rockets · ${d.c4} C4 · ${d.satchels} Satchels · ${d.exploAmmo} Explo`}</small></div><button aria-label={`${d.label} entfernen`} onClick={()=>setPath(path.filter(x=>x!==d.id))}><Trash2 size={14}/></button></div>)}
+       <div className="route-list">{result.details.map((d,i)=><div key={d.id} className="route-row gf-cost-row"><span className="route-step">{i+1}</span><div><strong>{d.label}</strong><small>{d.reason??`${d.rockets} Rockets · ${d.c4} C4 · ${d.satchels} Satchels · ${d.exploAmmo} Explo`}</small><span className="gf-cost-line">{d.counts[method]===null?'Kein Referenzwert':`${d.counts[method]!.toLocaleString('de-DE')} ${RAID_METHOD_LABELS[method]}`}</span></div><button aria-label={`${d.label} entfernen`} onClick={()=>setPath(path.filter(x=>x!==d.id))}><Trash2 size={14}/></button></div>)}
          {!result.details.length&&<div className="empty-route"><Crosshair size={24}/><span>Noch keine Raid-Ziele markiert</span></div>}</div>
        {!!path.length&&<button className="muted-wide" onClick={()=>setPath([])}><Trash2 size={13}/> Route leeren</button>}
+     </div>
+     <div className="calculator-block gf-mixed-raid" aria-label="Gemischter Raid-Plan">
+       <div className="block-headline"><span>GEMISCHTER RAID-PLAN</span><span className="small-label">MANUELLE METHODENWAHL</span></div>
+       <p className="subtle-note">Für jedes markierte Bauteil kannst du eine eigene Sprengmittelart festlegen. Das sind Voll-HP-Referenzkosten pro Ziel – keine simulierte Kombination mehrerer Sprengmittel auf derselben Wand.</p>
+       {mixed.lines.map(line=><div key={line.id} className="gf-mixed-line">
+        <div><strong>{line.label}</strong><small>{line.count===null?'Referenzwert fehlt':`${line.count.toLocaleString('de-DE')} ${RAID_METHOD_LABELS[line.method]} · ${line.sulfur!.toLocaleString('de-DE')} Schwefel`}</small></div>
+        <select aria-label={`Sprengmittel für ${line.label}`} value={perTargetMethods[line.id]??method} onChange={e=>setPerTargetMethods(m=>({...m,[line.id]:e.target.value as RaidMethod}))}>
+          {RAID_METHODS.map(m=><option key={m} value={m}>{RAID_METHOD_LABELS[m]}</option>)}
+        </select>
+       </div>)}
+       {!mixed.lines.length&&<p className="subtle-note">Wähle zuerst Bauteile im Plan aus.</p>}
+       {!!mixed.lines.length&&<>
+        <div className="gf-mixed-total"><span>{mixed.complete?'Gesamter Schwefelbedarf':'Schwefel-Teilsumme'}</span><strong>{mixed.knownSulfur.toLocaleString('de-DE')} S{mixed.complete?'':' + offen'}</strong></div>
+        {RAID_METHODS.filter(m=>mixed.byMethod[m].targets>0).map(m=><div key={m} className="statline"><span>{RAID_METHOD_LABELS[m]}</span><strong>{mixed.byMethod[m].count.toLocaleString('de-DE')} · {mixed.byMethod[m].sulfur.toLocaleString('de-DE')} S</strong></div>)}
+        {mixed.unknownTargets>0&&<p className="gf-raid-partial">{mixed.unknownTargets} von {mixed.totalTargets} Position(en) sind nicht berechenbar. Die Summe ist daher keine vollständige Raid-Kalkulation.</p>}
+       </>}
      </div>
      <div className="calculator-block gf-route-planner" aria-label="Automatische Raid-Routenplanung">
        <div className="block-headline"><span>AUTOMATISCHE ROUTENSUCHE</span><span className="small-label">GRAPH · REFERENZ</span></div>
